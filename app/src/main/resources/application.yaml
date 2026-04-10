@@ -1,3 +1,9 @@
 spring:
   application:
     name: java-backend-starter
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v1/api-docs
+  swagger-ui:
+    enabled: false
