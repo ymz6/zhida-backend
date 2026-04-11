@@ -36,13 +36,21 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // 检查目标请求处理方法有无 @LoginRequired注解，没有则直接放行
-        LoginRequired methodAnnotation = AnnotatedElementUtils.findMergedAnnotation(
+        // 检查目标请求处理方法有无 @LoginRequired注解
+        LoginRequired loginMethodAnnotation = AnnotatedElementUtils.findMergedAnnotation(
                 handlerMethod.getMethod(), LoginRequired.class);
-        LoginRequired classAnnotation = AnnotatedElementUtils.findMergedAnnotation(
+        LoginRequired loginClassAnnotation = AnnotatedElementUtils.findMergedAnnotation(
                 handlerMethod.getBeanType(), LoginRequired.class);
-        boolean hasLoginRequired = methodAnnotation != null || classAnnotation != null;
-        if (!hasLoginRequired) {
+        boolean hasLoginRequired = loginMethodAnnotation != null || loginClassAnnotation != null;
+
+        // 管理员接口天然要求已登录，因此 adminRequired 会隐含 loginRequired
+        AdminRequired adminMethodAnnotation = AnnotatedElementUtils.findMergedAnnotation(
+                handlerMethod.getMethod(), AdminRequired.class);
+        AdminRequired adminClassAnnotation = AnnotatedElementUtils.findMergedAnnotation(
+                handlerMethod.getBeanType(), AdminRequired.class);
+        boolean hasAdminRequired = adminMethodAnnotation != null || adminClassAnnotation != null;
+
+        if (!(hasLoginRequired || hasAdminRequired)) {
             return true;
         }
 
@@ -79,6 +87,11 @@ public class AuthInterceptor implements HandlerInterceptor {
         // 校验 tokenId 是否在黑名单中
         if (accessTokenBlacklistManager.isRevoked(tokenId)) {
             throw BusinessException.of(ResultCode.NOT_LOGIN, "未登录");
+        }
+
+        // 管理员身份校验
+        if (hasAdminRequired && !UserRole.ADMIN.equals(userRole)) {
+            throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
 
         // 给当前请求处理线程设置用户认证上下文
