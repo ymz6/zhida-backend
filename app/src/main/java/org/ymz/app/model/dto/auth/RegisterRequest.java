@@ -1,4 +1,4 @@
-package org.ymz.app.model.dto.user;
+package org.ymz.app.model.dto.auth;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;

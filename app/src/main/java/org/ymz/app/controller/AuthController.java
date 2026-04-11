@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.ymz.app.model.dto.user.RegisterRequest;
+import org.ymz.app.model.dto.auth.LoginRequest;
+import org.ymz.app.model.dto.auth.LoginResponse;
+import org.ymz.app.model.dto.auth.RegisterRequest;
 import org.ymz.app.service.AuthService;
 import org.ymz.app.web.response.Response;
 
@@ -31,4 +33,11 @@ public class AuthController {
         authService.register(request);
         return Response.ok();
     }
+
+    @PostMapping("/login")
+    @Operation(operationId = "login")
+    public Response<LoginResponse> login(@RequestBody @Valid LoginRequest request) {
+        return Response.ok(authService.login(request));
+    }
+
 }

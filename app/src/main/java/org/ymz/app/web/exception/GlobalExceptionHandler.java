@@ -2,11 +2,14 @@ package org.ymz.app.web.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.BindException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.ymz.app.web.response.Response;
 import org.ymz.app.web.response.ResultCode;
+
+import java.util.stream.Collectors;
 
 
 /**
@@ -30,9 +33,17 @@ public class GlobalExceptionHandler {
      * BindException 处理对象参数校验
      * HandlerMethodValidationException 处理方法参数校验
      */
-    @ExceptionHandler({BindException.class, HandlerMethodValidationException.class})
-    public Response<Void> handleValidationException(Exception e) {
-        return Response.fail(ResultCode.INVALID_PARAM);
+    @ExceptionHandler(BindException.class)
+    public Response<Void> handleBindException(BindException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage)
+                .collect(Collectors.joining("; "));
+        return Response.fail(ResultCode.INVALID_PARAM, message);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public Response<Void> handleValidationException(HandlerMethodValidationException e) {
+        return Response.fail(ResultCode.INVALID_PARAM, e.getMessage());
     }
 
     /**
