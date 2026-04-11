@@ -2,9 +2,9 @@ spring:
   application:
     name: java-backend-starter
   datasource:
-    url: <your url>
-    username: <your username>
-    password: <your password>
+    url: jdbc:mysql://localhost:3306/zhida
+    username: root
+    password: 123456
 springdoc:
   api-docs:
     enabled: true

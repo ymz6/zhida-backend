@@ -1,12 +1,9 @@
 package org.ymz;
 
-import cn.hutool.setting.yaml.YamlUtil;
 import com.mybatisflex.codegen.Generator;
 import com.mybatisflex.codegen.config.GlobalConfig;
 import com.mybatisflex.codegen.dialect.IDialect;
 import com.zaxxer.hikari.HikariDataSource;
-
-import java.util.Map;
 
 /**
  * MyBatis Flex 代码生成器
@@ -14,10 +11,10 @@ import java.util.Map;
  */
 public class MyBatisFlexCodeGenerator {
 
-    private static final String URL = "请填写url";
-    private static final String USERNAME = "请填写username";
-    private static final String PASSWORD = "请填写password";
-    private static final String TABLE_NAME = "请填写表名";
+    private static final String URL = "jdbc:mysql://localhost:3306/zhida";
+    private static final String USERNAME = "root";
+    private static final String PASSWORD = "123456";
+    private static final String TABLE_NAME = "user";
 
     public static void main(String[] args) {
         // 配置 Hikari 数据源
