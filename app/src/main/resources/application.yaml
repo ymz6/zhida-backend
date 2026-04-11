@@ -1,9 +1,19 @@
 spring:
   application:
     name: java-backend-starter
+  datasource:
+    url: <your url>
+    username: <your username>
+    password: <your password>
 springdoc:
   api-docs:
     enabled: true
     path: /v1/api-docs
   swagger-ui:
     enabled: false
+mybatis-flex:
+  configuration:
+    # 方便开发阶段排查问题的日志
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  # Mapper XML 文件位置
+  mapper-locations: classpath*:/mapper/**/*.xml

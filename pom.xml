@@ -17,6 +17,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>app</module>
+        <module>mybatis-flex-code-gen</module>
     </modules>
 
     <properties>
@@ -24,6 +25,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <openapi.version>2.8.16</openapi.version>
         <hutool.version>5.8.40</hutool.version>
+        <mybatis-flex.version>1.11.6</mybatis-flex.version>
     </properties>
 
     <dependencyManagement>
@@ -38,6 +40,14 @@
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-all</artifactId>
                 <version>${hutool.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.mybatis-flex</groupId>
+                <artifactId>mybatis-flex-dependencies</artifactId>
+                <version>${mybatis-flex.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
