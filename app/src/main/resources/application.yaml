@@ -17,3 +17,6 @@ mybatis-flex:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   # Mapper XML 文件位置
   mapper-locations: classpath*:/mapper/**/*.xml
+jwt:
+  secret: 4ryT+67BFbvVl6HqMFzdOlMcaVUcCrf3hwPjTN4Qmog=
+  issuer: zhida
