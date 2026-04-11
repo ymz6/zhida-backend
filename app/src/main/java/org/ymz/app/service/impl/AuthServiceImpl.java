@@ -12,6 +12,8 @@ import org.ymz.app.model.dto.auth.LoginRequest;
 import org.ymz.app.model.dto.auth.LoginResponse;
 import org.ymz.app.model.dto.auth.RegisterRequest;
 import org.ymz.app.model.entity.User;
+import org.ymz.app.security.AccessTokenBlacklistManager;
+import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.JwtClaimName;
 import org.ymz.app.security.JwtHelper;
 import org.ymz.app.service.AuthService;
@@ -20,6 +22,8 @@ import org.ymz.app.utils.BCryptHashUtils;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 import static org.ymz.app.model.entity.table.UserTableDef.USER;
@@ -35,6 +39,7 @@ public class AuthServiceImpl implements AuthService {
     public final UserService userService;
     private final JwtHelper jwtHelper;
     private final UserConverter userConverter;
+    private final AccessTokenBlacklistManager accessTokenBlacklistManager;
 
     // 2小时
     private static final long ACCESS_TOKEN_EXPIRE_SECONDS = 2 * 60 * 60L;
@@ -91,5 +96,12 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .userInfo(userConverter.toUserInfo(user))
                 .build();
+    }
+
+    @Override
+    public void logout(AuthContext authContext) {
+        // 计算 access token 的剩余过期时间，然后将其标识加入到黑名单中
+        accessTokenBlacklistManager.revoke(authContext.getTokenId(),
+                Duration.between(Instant.now(), authContext.getTokenExpiration().toInstant()));
     }
 }

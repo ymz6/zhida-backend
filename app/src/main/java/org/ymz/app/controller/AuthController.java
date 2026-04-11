@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.ymz.app.model.dto.auth.LoginRequest;
 import org.ymz.app.model.dto.auth.LoginResponse;
 import org.ymz.app.model.dto.auth.RegisterRequest;
+import org.ymz.app.security.AuthContext;
+import org.ymz.app.security.AuthContextHolder;
+import org.ymz.app.security.LoginRequired;
 import org.ymz.app.service.AuthService;
 import org.ymz.app.web.response.Response;
 
@@ -38,6 +41,15 @@ public class AuthController {
     @Operation(operationId = "login")
     public Response<LoginResponse> login(@RequestBody @Valid LoginRequest request) {
         return Response.ok(authService.login(request));
+    }
+
+    @LoginRequired
+    @PostMapping("/logout")
+    @Operation(operationId = "logout")
+    public Response<Void> logout() {
+        AuthContext authContext = AuthContextHolder.get();
+        authService.logout(authContext);
+        return Response.ok();
     }
 
 }
