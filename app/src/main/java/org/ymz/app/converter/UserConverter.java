@@ -4,7 +4,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 import org.ymz.app.enums.UserRole;
-import org.ymz.app.model.dto.auth.UserInfo;
+import org.ymz.app.model.dto.user.UserInfo;
 import org.ymz.app.model.entity.User;
 
 

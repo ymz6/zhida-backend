@@ -1,6 +1,11 @@
 spring:
   application:
     name: java-backend-starter
+  servlet:
+    multipart:
+      # 全局上传保护阈值，具体业务限制在各自 Service 中校验
+      max-file-size: 10MB
+      max-request-size: 10MB
   datasource:
     url: jdbc:mysql://localhost:3306/zhida
     username: root

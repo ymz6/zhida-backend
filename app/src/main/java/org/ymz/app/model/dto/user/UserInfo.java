@@ -1,4 +1,4 @@
-package org.ymz.app.model.dto.auth;
+package org.ymz.app.model.dto.user;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,5 +22,6 @@ public class UserInfo {
     private String roleText;
     private String nickname;
     private String avatar;
+    private String profile;
     private LocalDateTime createTime;
 }

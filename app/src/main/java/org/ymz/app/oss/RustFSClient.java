@@ -1,5 +1,6 @@
 package org.ymz.app.oss;
 
+import cn.hutool.core.util.StrUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.ymz.app.web.exception.BusinessException;
@@ -11,7 +12,9 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.io.InputStream;
@@ -26,6 +29,8 @@ import java.net.URI;
 @Slf4j
 @ConfigurationProperties(prefix = "oss")
 public class RustFSClient {
+    private final String uri;
+
     /**
      * 公共桶：存放可直接访问的资源
      */
@@ -42,6 +47,7 @@ public class RustFSClient {
     public RustFSClient(String uri, String accessKey, String secretKey, String publicBucket, String privateBucket) {
         this.publicBucket = publicBucket;
         this.privateBucket = privateBucket;
+        this.uri = uri;
 
         StaticCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
         URI endpoint = URI.create(uri);
@@ -88,6 +94,35 @@ public class RustFSClient {
             log.error("文件上传失败: bucket={}, key={}", bucket, key, e);
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, e.getMessage(), e);
         }
+    }
+
+    /**
+     * 删除对象
+     *
+     * @param bucketType 目标桶类型
+     * @param key        对象 key
+     */
+    public void deleteObject(BucketType bucketType, String key) {
+        String bucket = resolveBucket(bucketType);
+        try {
+            DeleteObjectRequest request = DeleteObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(key)
+                    .build();
+            s3Client.deleteObject(request);
+        } catch (S3Exception e) {
+            log.error("文件删除失败: bucket={}, key={}", bucket, key, e);
+            throw BusinessException.of(ResultCode.SYSTEM_ERROR, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 获取公有桶对象的访问地址
+     * @param key 对象 key
+     * @return 对象访问地址
+     */
+    public String getPublicObjectUrl(String key) {
+        return StrUtil.format("{}/{}/{}", uri, publicBucket, key);
     }
 
     private String resolveBucket(BucketType bucketType) {

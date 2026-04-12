@@ -29,6 +29,8 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <jjwt.version>0.13.0</jjwt.version>
         <oss.version>2.25.27</oss.version>
+        <tika.version>3.2.3</tika.version>
+        <imageio-webp.version>3.12.0</imageio-webp.version>
     </properties>
 
     <dependencyManagement>
@@ -81,6 +83,18 @@
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>s3</artifactId>
                 <version>${oss.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-core</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.twelvemonkeys.imageio</groupId>
+                <artifactId>imageio-webp</artifactId>
+                <version>${imageio-webp.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
