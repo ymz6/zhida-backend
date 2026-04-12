@@ -39,12 +39,16 @@ src/main/java/org/ymz/app/
 ├── config/                  # 全局配置类
 ├── controller/              # 控制器层
 ├── converter/               # MapStruct 转换器
+├── enums/                   # 枚举类
 ├── mapper/                  # 数据库访问层
 ├── model/                   # 数据模型层
 │   ├── dto/                 # 数据传输对象
 │   └── entity/              # 数据库实体类
+├── oss/                     # OSS 对象存储服务
+├── security/                # 安全认证与授权
 ├── service/                 # 业务逻辑层接口
 │   └── impl/                # 业务逻辑层实现
+├── utils/                   # 工具类
 ├── web/                     # Web 层通用基础设施
 │   ├── exception/           # 全局异常处理
 │   └── response/            # 统一响应封装
