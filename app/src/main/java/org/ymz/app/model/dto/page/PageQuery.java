@@ -12,10 +12,10 @@ import lombok.Data;
 @Data
 public class PageQuery {
     @Min(value = 1, message = "非法页码")
-    private long pageNum = 1;
+    private int pageNum = 1;
 
     @Min(value = 1, message = "非法页大小")
-    private long pageSize = 10;
+    private int pageSize = 10;
 
     /**
      * 转换为 MyBatisFlex 的 Page对象

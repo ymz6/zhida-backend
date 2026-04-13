@@ -26,17 +26,17 @@ public class PageResult<T> {
     /**
      * 当前页码
      */
-    private long pageNum;
+    private int pageNum;
 
     /**
      * 每页大小
      */
-    private long pageSize;
+    private int pageSize;
 
     /**
      * 总页数
      */
-    private long totalPages;
+    private int totalPages;
 
     /**
      * 是否存在下一页
@@ -60,9 +60,9 @@ public class PageResult<T> {
         PageResult<T> result = new PageResult<>();
         result.setList(page.getRecords());
         result.setTotal(page.getTotalRow());
-        result.setPageNum(page.getPageNumber());
-        result.setPageSize(page.getPageSize());
-        result.setTotalPages(page.getTotalPage());
+        result.setPageNum(Math.toIntExact(page.getPageNumber()));
+        result.setPageSize(Math.toIntExact(page.getPageSize()));
+        result.setTotalPages(Math.toIntExact(page.getTotalPage()));
         result.setHasNext(page.hasNext());
         result.setHasPrevious(page.hasPrevious());
         return result;
@@ -83,9 +83,9 @@ public class PageResult<T> {
                 .map(converter)
                 .collect(Collectors.toList()));
         result.setTotal(page.getTotalRow());
-        result.setPageNum(page.getPageNumber());
-        result.setPageSize(page.getPageSize());
-        result.setTotalPages(page.getTotalPage());
+        result.setPageNum(Math.toIntExact(page.getPageNumber()));
+        result.setPageSize(Math.toIntExact(page.getPageSize()));
+        result.setTotalPages(Math.toIntExact(page.getTotalPage()));
         result.setHasNext(page.hasNext());
         result.setHasPrevious(page.hasPrevious());
         return result;
