@@ -12,3 +12,7 @@ target/
 
 ### Mac OS ###
 .DS_Store
+
+.agents
+.claude
+.codex

@@ -52,6 +52,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public Response<Void> handleRuntimeException(RuntimeException e) {
         log.error("Unhandled runtime exception", e);
-        return Response.fail(ResultCode.SYSTEM_ERROR);
+        return Response.fail(ResultCode.SYSTEM_ERROR, e.getMessage());
     }
 }
