@@ -8,6 +8,9 @@ import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
+import java.util.Map;
+
 /**
  * LangChain4j 全局配置
  * @author ymz
@@ -32,8 +35,15 @@ public class LangChain4jConfig {
                 .baseUrl(BASE_URL)
                 .apiKey(API_KEY)
                 .modelName(MODEL_NAME)
-                .temperature(0.3)
-                .maxCompletionTokens(2048)
+                .temperature(0.1)
+                .maxTokens(8192)
+                .timeout(Duration.ofSeconds(180))
+                .customParameters(Map.of(
+                        // 启用 GLM 的结构化输出能力
+                        "response_format", Map.of("type", "json_object"),
+                        // 关闭 GLM 的思考模式
+                        "thinking", Map.of("type", "disabled")
+                ))
                 .logRequests(true)
                 .logResponses(true)
                 .build();
@@ -45,8 +55,15 @@ public class LangChain4jConfig {
                 .baseUrl(BASE_URL)
                 .apiKey(API_KEY)
                 .modelName(MODEL_NAME)
-                .temperature(0.3)
-                .maxCompletionTokens(2048)
+                .temperature(0.1)
+                .maxTokens(8192)
+                .timeout(Duration.ofSeconds(180))
+                .customParameters(Map.of(
+                        // 启用 GLM 的结构化输出能力
+                        "response_format", Map.of("type", "json_object"),
+                        // 关闭 GLM 的思考模式
+                        "thinking", Map.of("type", "disabled")
+                ))
                 .logRequests(true)
                 .logResponses(true)
                 .build();

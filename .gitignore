@@ -16,3 +16,4 @@ target/
 .agents
 .claude
 .codex
+tmp

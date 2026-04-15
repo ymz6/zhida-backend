@@ -7,7 +7,7 @@ import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.ymz.app.converter.UserConverter;
-import org.ymz.app.enums.UserRole;
+import org.ymz.app.model.enums.UserRole;
 import org.ymz.app.model.dto.auth.LoginRequest;
 import org.ymz.app.model.dto.auth.LoginResponse;
 import org.ymz.app.model.dto.auth.RegisterRequest;
@@ -36,7 +36,7 @@ import static org.ymz.app.model.entity.table.UserTableDef.USER;
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
-    public final UserService userService;
+    private final UserService userService;
     private final JwtHelper jwtHelper;
     private final UserConverter userConverter;
     private final AccessTokenBlacklistManager accessTokenBlacklistManager;

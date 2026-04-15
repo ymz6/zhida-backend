@@ -1,4 +1,4 @@
-package org.ymz.app.enums;
+package org.ymz.app.model.enums;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

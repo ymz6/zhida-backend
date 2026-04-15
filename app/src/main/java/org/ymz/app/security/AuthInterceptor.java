@@ -13,7 +13,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
-import org.ymz.app.enums.UserRole;
+import org.ymz.app.model.enums.UserRole;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 

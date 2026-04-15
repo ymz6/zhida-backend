@@ -2,7 +2,7 @@ package org.ymz.app.security;
 
 import lombok.Builder;
 import lombok.Getter;
-import org.ymz.app.enums.UserRole;
+import org.ymz.app.model.enums.UserRole;
 
 import java.util.Date;
 
