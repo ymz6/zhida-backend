@@ -4,6 +4,7 @@ import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.spring.AiService;
 import org.ymz.app.ai.dto.HtmlCodeResult;
 import org.ymz.app.ai.dto.MultiFileCodeResult;
+import reactor.core.publisher.Flux;
 
 /**
  * AI 代码生成
@@ -23,4 +24,16 @@ public interface AiCodeGeneratorService {
      */
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.md")
     MultiFileCodeResult generateMultiFileCode(String userMessage);
+
+    /**
+     * 流式生成 HTML 代码
+     */
+    @SystemMessage(fromResource = "prompt/codegen-html-system-prompt-streaming.md")
+    Flux<String> generateHtmlCodeStreaming(String userMessage);
+
+    /**
+     * 流式生成多文件（index.html、style.css、script.js） 代码
+     */
+    @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt-streaming.md")
+    Flux<String>  generateMultiFileCodeStreaming(String userMessage);
 }

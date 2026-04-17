@@ -59,8 +59,6 @@ public class LangChain4jConfig {
                 .maxTokens(8192)
                 .timeout(Duration.ofSeconds(180))
                 .customParameters(Map.of(
-                        // 启用 GLM 的结构化输出能力
-                        "response_format", Map.of("type", "json_object"),
                         // 关闭 GLM 的思考模式
                         "thinking", Map.of("type", "disabled")
                 ))
