@@ -1,7 +1,5 @@
 package org.ymz.app.web.response;
 
-import lombok.AllArgsConstructor;
-
 /**
  * 统一响应类
  *
