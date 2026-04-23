@@ -32,7 +32,6 @@
         <tika.version>3.2.3</tika.version>
         <imageio-webp.version>3.12.0</imageio-webp.version>
         <langchain4j.version>1.13.0-beta23</langchain4j.version>
-        <langgraph4j.version>1.8.13</langgraph4j.version>
     </properties>
 
     <dependencyManagement>
@@ -113,12 +112,6 @@
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-reactor</artifactId>
                 <version>${langchain4j.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.bsc.langgraph4j</groupId>
-                <artifactId>langgraph4j-core</artifactId>
-                <version>${langgraph4j.version}</version>
             </dependency>
 
         </dependencies>

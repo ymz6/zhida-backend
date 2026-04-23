@@ -118,11 +118,6 @@
             <artifactId>langchain4j-reactor</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.bsc.langgraph4j</groupId>
-            <artifactId>langgraph4j-core</artifactId>
-        </dependency>
-
     </dependencies>
 
     <build>
