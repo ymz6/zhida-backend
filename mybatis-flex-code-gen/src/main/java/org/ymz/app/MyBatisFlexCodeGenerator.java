@@ -15,7 +15,7 @@ public class MyBatisFlexCodeGenerator {
     private static final String URL = "jdbc:mysql://localhost:3306/zhida";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "123456";
-    private static final String TABLE_NAME = "application_chat_message";
+    private static final String TABLE_NAME = "app_task";
 
     public static void main(String[] args) {
         // 配置 Hikari 数据源
