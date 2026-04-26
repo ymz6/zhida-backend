@@ -37,3 +37,9 @@ oss:
   secret-key: Y5Oa1HvSyRJz8sZ7jcMACQTbtfNhgemFK0VwWnxi
   public-bucket: zhida-public
   private-bucket: zhida-private
+app:
+  generation:
+    template-path: project-template/zhida-react-project
+    workspace-root: tmp/app-workspaces
+    preview-root: tmp/app-previews
+    preview-url-prefix: /previews

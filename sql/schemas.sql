@@ -67,7 +67,7 @@ create table app_task
     task_type      varchar(32)                           not null comment '任务类型：CREATE-创建应用，EDIT-修改应用，REPAIR-修复应用，DEPLOY-部署应用',
     prompt         text                                  null comment '本次任务的用户提示词或操作说明',
     status         varchar(32) default 'PENDING'         not null comment '任务状态：PENDING-待执行，RUNNING-执行中，SUCCESS-执行成功，FAILED-执行失败，CANCELED-已取消',
-    current_step   varchar(64)                           null comment '当前执行步骤：ANALYZING-需求分析，GENERATING_CODE-生成代码，BUILDING-构建应用，REPAIRING-修复代码，DEPLOYING-部署应用，FINISHED-已完成',
+    current_step   varchar(64)                           null comment '当前执行步骤：INITIALIZING_WORKSPACE-初始化工作区，ANALYZING-需求分析，GENERATING_CODE-生成代码，BUILDING-构建应用，DEPLOYING-部署应用，FINISHED-已完成',
     error_message  text                                  null comment '任务失败时的错误信息',
     result_summary text                                  null comment '任务执行结果摘要',
     created_at     datetime    default CURRENT_TIMESTAMP not null comment '创建时间',

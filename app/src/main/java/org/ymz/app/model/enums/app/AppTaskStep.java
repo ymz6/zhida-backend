@@ -11,6 +11,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum AppTaskStep {
 
+    INITIALIZING_WORKSPACE("正在初始化工作区"),
     ANALYZING("正在分析需求"),
     GENERATING_CODE("正在生成代码"),
     BUILDING("正在构建应用"),

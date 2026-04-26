@@ -60,7 +60,7 @@ public class AppTask implements Serializable {
     private String status;
 
     /**
-     * 当前执行步骤：ANALYZING-需求分析，GENERATING_CODE-生成代码，BUILDING-构建应用，REPAIRING-修复代码，DEPLOYING-部署应用，FINISHED-已完成
+     * 当前执行步骤：INITIALIZING_WORKSPACE-初始化工作区，ANALYZING-需求分析，GENERATING_CODE-生成代码，BUILDING-构建应用，DEPLOYING-部署应用，FINISHED-已完成
      */
     private String currentStep;
 

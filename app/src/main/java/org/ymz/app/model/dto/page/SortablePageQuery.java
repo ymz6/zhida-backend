@@ -1,12 +1,12 @@
 package org.ymz.app.model.dto.page;
 
 import com.mybatisflex.core.query.QueryColumn;
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
  * 可排序的列表分页查询请求基类
+ * 
  * @author ymz
  */
 @Data

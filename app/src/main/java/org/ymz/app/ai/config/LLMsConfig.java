@@ -14,6 +14,7 @@ import java.util.Map;
 
 /**
  * LLM 配置
+ * 
  * @author ymz
  */
 @Configuration
@@ -38,8 +39,7 @@ public class LLMsConfig {
                 .responseFormat(ResponseFormat.JSON)
                 .customParameters(
                         // 禁用 Qwen 的思考模式
-                        Map.of("enable_thinking",false)
-                )
+                        Map.of("enable_thinking", false))
                 .logRequests(true)
                 .logResponses(true)
                 .build();
@@ -48,6 +48,7 @@ public class LLMsConfig {
     /**
      * 代码生成模型，本 Agent 应用的大脑
      */
+    @Bean
     public StreamingChatModel codeGenerateModel() {
         final String API_KEY = System.getenv("ZHIDA_CODE_GEN_API_KEY");
         if (StrUtil.isBlank(API_KEY)) {
@@ -59,15 +60,13 @@ public class LLMsConfig {
                 .apiKey(API_KEY)
                 .modelName("glm-4.7")
                 .temperature(0.1)
-                .maxTokens(8192)
-                .timeout(Duration.ofSeconds(180))
+                .maxTokens(16384)
+                .timeout(Duration.ofMinutes(30))
                 .customParameters(Map.of(
                         // 暂时禁用 GLM 的思考模式，后续会考虑打开
-                        "thinking", Map.of("type", "disabled")
-                ))
+                        "thinking", Map.of("type", "disabled")))
                 .logRequests(true)
                 .logResponses(true)
                 .build();
     }
 }
-
