@@ -2,6 +2,16 @@ package org.ymz.app.ai.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
+import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.ymz.app.model.entity.App;
@@ -10,13 +20,18 @@ import org.ymz.app.model.enums.app.AppChatMessageRole;
 import org.ymz.app.model.enums.app.AppChatMessageType;
 import org.ymz.app.service.generation.AppTaskLogPublisher;
 import org.ymz.app.service.generation.ProjectCommandResult;
+import org.ymz.app.service.generation.ProjectCommandRunner;
 
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -27,6 +42,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class CodeGenerationAgentTest {
 
@@ -40,7 +56,7 @@ class CodeGenerationAgentTest {
         Files.createDirectories(workspacePath.resolve("src/pages"));
         Files.writeString(workspacePath.resolve("src/pages/IndexPage.jsx"), "export default function IndexPage() {}");
 
-        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, null, null);
+        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, null, null, null);
         WorkspaceToolExecutor tools = new WorkspaceToolExecutor(workspacePath, objectMapper);
         App app = App.builder()
                 .id(1L)
@@ -71,7 +87,7 @@ class CodeGenerationAgentTest {
 
     @Test
     void systemPromptContainsComponentSplitAndCheckProjectRules() {
-        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, null, null);
+        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, null, null, null);
 
         String prompt = agent.loadSystemPrompt();
 
@@ -83,9 +99,129 @@ class CodeGenerationAgentTest {
     }
 
     @Test
+    void generateLoadsAppMemoryAndPersistsCompactSuccessfulSummary() throws Exception {
+        Files.createDirectories(workspacePath.resolve("src/pages"));
+        Files.writeString(workspacePath.resolve("src/pages/IndexPage.jsx"), "export default function IndexPage() {}");
+
+        ChatMemoryStore memoryStore = new InMemoryChatMemoryStore();
+        CodeGenerationChatMemoryFactory memoryFactory = new CodeGenerationChatMemoryFactory(memoryStore);
+        memoryFactory.create(1L).add(UserMessage.from("历史用户需求：做一个任务看板"));
+        memoryFactory.create(1L).add(AiMessage.from("历史完成摘要：已生成任务看板"));
+        CapturingStreamingChatModel model = new CapturingStreamingChatModel(
+                AiMessage.from(request("checkProject")),
+                AiMessage.from(request("finish", "{\"summary\":\"新增筛选面板\"}"))
+        );
+        CodeGenerationAgent agent = new CodeGenerationAgent(
+                model,
+                objectMapper,
+                mock(AppTaskLogPublisher.class),
+                passingCommandRunner(),
+                memoryFactory
+        );
+        AppTask task = AppTask.builder()
+                .id(2L)
+                .prompt("加一个筛选面板")
+                .build();
+
+        agent.generate(app(), task, workspacePath);
+
+        List<ChatMessage> firstRequestMessages = model.requests.getFirst().messages();
+        assertTrue(firstRequestMessages.getFirst() instanceof SystemMessage);
+        String firstRequestText = firstRequestMessages.toString();
+        assertTrue(firstRequestText.contains("历史用户需求：做一个任务看板"));
+        assertTrue(firstRequestText.contains("历史完成摘要：已生成任务看板"));
+        assertTrue(firstRequestText.contains("用户需求：\n加一个筛选面板"));
+        assertTrue(firstRequestText.contains("当前项目文件"));
+
+        List<ChatMessage> persistedMessages = memoryStore.getMessages("app:1");
+        assertEquals(4, persistedMessages.size());
+        String persistedText = persistedMessages.toString();
+        assertTrue(persistedText.contains("历史用户需求：做一个任务看板"));
+        assertTrue(persistedText.contains("历史完成摘要：已生成任务看板"));
+        assertTrue(persistedText.contains("用户需求：\n加一个筛选面板"));
+        assertTrue(persistedText.contains("新增筛选面板"));
+        assertTrue(!persistedText.contains("当前项目文件"));
+    }
+
+    @Test
+    void iterateLoadsAppMemoryAndPersistsCompactSuccessfulSummary() throws Exception {
+        Files.createDirectories(workspacePath.resolve("src/pages"));
+        Files.writeString(workspacePath.resolve("src/pages/IndexPage.jsx"), "export default function IndexPage() {}");
+
+        ChatMemoryStore memoryStore = new InMemoryChatMemoryStore();
+        CodeGenerationChatMemoryFactory memoryFactory = new CodeGenerationChatMemoryFactory(memoryStore);
+        memoryFactory.create(1L).add(UserMessage.from("历史用户需求：做一个任务看板"));
+        memoryFactory.create(1L).add(AiMessage.from("历史完成摘要：已生成任务看板"));
+        CapturingStreamingChatModel model = new CapturingStreamingChatModel(
+                AiMessage.from(request("checkProject")),
+                AiMessage.from(request("finish", "{\"summary\":\"完成后续筛选迭代\"}"))
+        );
+        CodeGenerationAgent agent = new CodeGenerationAgent(
+                model,
+                objectMapper,
+                mock(AppTaskLogPublisher.class),
+                passingCommandRunner(),
+                memoryFactory
+        );
+        AppTask task = AppTask.builder()
+                .id(2L)
+                .prompt("继续加一个筛选面板")
+                .build();
+
+        agent.iterate(app(), task, workspacePath);
+
+        String firstRequestText = model.requests.getFirst().messages().toString();
+        assertTrue(firstRequestText.contains("历史用户需求：做一个任务看板"));
+        assertTrue(firstRequestText.contains("这是用户和 Agent 的后续对话迭代需求"));
+        assertTrue(firstRequestText.contains("本轮用户输入：\n继续加一个筛选面板"));
+        assertTrue(firstRequestText.contains("当前项目文件"));
+
+        List<ChatMessage> persistedMessages = memoryStore.getMessages("app:1");
+        assertEquals(4, persistedMessages.size());
+        String persistedText = persistedMessages.toString();
+        assertTrue(persistedText.contains("用户需求：\n继续加一个筛选面板"));
+        assertTrue(persistedText.contains("完成后续筛选迭代"));
+        assertTrue(!persistedText.contains("当前项目文件"));
+    }
+
+    @Test
+    void repairLoadsAppMemoryButDoesNotPersistRepairContext() throws Exception {
+        Files.createDirectories(workspacePath.resolve("src/pages"));
+        Files.writeString(workspacePath.resolve("src/pages/IndexPage.jsx"), "export default function IndexPage() {}");
+
+        ChatMemoryStore memoryStore = new InMemoryChatMemoryStore();
+        CodeGenerationChatMemoryFactory memoryFactory = new CodeGenerationChatMemoryFactory(memoryStore);
+        memoryFactory.create(1L).add(UserMessage.from("历史用户需求：做一个任务看板"));
+        memoryFactory.create(1L).add(AiMessage.from("历史完成摘要：已生成任务看板"));
+        CapturingStreamingChatModel model = new CapturingStreamingChatModel(
+                AiMessage.from(request("checkProject")),
+                AiMessage.from(request("finish", "{\"summary\":\"修复 lint 问题\"}"))
+        );
+        CodeGenerationAgent agent = new CodeGenerationAgent(
+                model,
+                objectMapper,
+                mock(AppTaskLogPublisher.class),
+                passingCommandRunner(),
+                memoryFactory
+        );
+
+        agent.repair(app(), task(), workspacePath, failedCommand(), 1);
+
+        String firstRequestText = model.requests.getFirst().messages().toString();
+        assertTrue(firstRequestText.contains("历史用户需求：做一个任务看板"));
+        assertTrue(firstRequestText.contains("自动修复轮次：第 1 轮"));
+
+        List<ChatMessage> persistedMessages = memoryStore.getMessages("app:1");
+        assertEquals(2, persistedMessages.size());
+        String persistedText = persistedMessages.toString();
+        assertTrue(!persistedText.contains("自动修复轮次"));
+        assertTrue(!persistedText.contains("修复 lint 问题"));
+    }
+
+    @Test
     void assistantMessagesArePersisted() throws Exception {
         AppTaskLogPublisher publisher = mock(AppTaskLogPublisher.class);
-        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, publisher, null);
+        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, publisher, null, null);
 
         invokePublishAssistantMessage(agent, app(), task(), "已完成页面规划");
 
@@ -110,7 +246,7 @@ class CodeGenerationAgentTest {
     @Test
     void toolCallsArePersistedAsSummaries() throws Exception {
         AppTaskLogPublisher publisher = mock(AppTaskLogPublisher.class);
-        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, publisher, null);
+        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, publisher, null, null);
 
         invokePublishToolCall(
                 agent,
@@ -132,7 +268,7 @@ class CodeGenerationAgentTest {
     @Test
     void keyToolResultsArePersisted() throws Exception {
         AppTaskLogPublisher publisher = mock(AppTaskLogPublisher.class);
-        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, publisher, null);
+        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, publisher, null, null);
 
         for (String toolName : List.of("writeFile", "deleteFile", "checkProject", "finish")) {
             boolean finished = "finish".equals(toolName);
@@ -166,7 +302,7 @@ class CodeGenerationAgentTest {
     @Test
     void largeToolResultsAreOnlyPublishedTransiently() throws Exception {
         AppTaskLogPublisher publisher = mock(AppTaskLogPublisher.class);
-        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, publisher, null);
+        CodeGenerationAgent agent = new CodeGenerationAgent(null, objectMapper, publisher, null, null);
 
         for (String toolName : List.of("readFile", "listFiles", "searchFiles")) {
             invokePublishToolResult(agent, app(), task(), request(toolName), result(toolName + " result", false, false));
@@ -242,9 +378,48 @@ class CodeGenerationAgentTest {
         method.invoke(agent, app, task, request, result);
     }
 
+    private ProjectCommandRunner passingCommandRunner() {
+        ProjectCommandRunner commandRunner = mock(ProjectCommandRunner.class);
+        when(commandRunner.runPnpmCommandResult(
+                eq(1L),
+                eq(2L),
+                eq(workspacePath),
+                eq(ProjectCommandRunner.LogMode.SUMMARY),
+                any(String[].class)
+        )).thenReturn(
+                passedCommand("lint"),
+                passedCommand("build"),
+                passedCommand("lint"),
+                passedCommand("build")
+        );
+        return commandRunner;
+    }
+
+    private ProjectCommandResult passedCommand(String command) {
+        String commandText = "pnpm.cmd " + command;
+        return ProjectCommandResult.builder()
+                .command(new String[]{"pnpm.cmd", command})
+                .commandText(commandText)
+                .content("$ " + commandText + "\n" + command + " output")
+                .exitCode(0)
+                .success(true)
+                .build();
+    }
+
+    private ProjectCommandResult failedCommand() {
+        return ProjectCommandResult.builder()
+                .command(new String[]{"pnpm.cmd", "lint"})
+                .commandText("pnpm.cmd lint")
+                .content("$ pnpm.cmd lint\nsrc/pages/IndexPage.jsx\n  1:1  error  demo lint error")
+                .exitCode(1)
+                .success(false)
+                .build();
+    }
+
     private App app() {
         return App.builder()
                 .id(1L)
+                .name("测试应用")
                 .build();
     }
 
@@ -271,5 +446,23 @@ class CodeGenerationAgentTest {
                 .error(error)
                 .finished(finished)
                 .build();
+    }
+
+    private static class CapturingStreamingChatModel implements StreamingChatModel {
+
+        private final Queue<AiMessage> responses = new ArrayDeque<>();
+        private final List<ChatRequest> requests = new ArrayList<>();
+
+        private CapturingStreamingChatModel(AiMessage... responses) {
+            this.responses.addAll(List.of(responses));
+        }
+
+        @Override
+        public void doChat(ChatRequest chatRequest, StreamingChatResponseHandler handler) {
+            requests.add(chatRequest);
+            handler.onCompleteResponse(ChatResponse.builder()
+                    .aiMessage(responses.remove())
+                    .build());
+        }
     }
 }

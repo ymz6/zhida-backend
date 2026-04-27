@@ -15,6 +15,7 @@ import org.ymz.app.model.enums.app.AppTaskType;
 import org.ymz.app.service.AppTaskRuntimeService;
 import org.ymz.app.service.AppTaskService;
 import org.ymz.app.service.generation.AppCreateTaskRunner;
+import org.ymz.app.service.generation.AppIterationTaskRunner;
 import org.ymz.app.service.generation.AppTaskLogPublisher;
 import org.ymz.app.service.generation.AppTaskSseBroker;
 import org.ymz.app.web.exception.BusinessException;
@@ -39,6 +40,7 @@ public class AppTaskRuntimeServiceImpl implements AppTaskRuntimeService {
     private final AppTaskLogPublisher appTaskLogPublisher;
     private final AppTaskSseBroker appTaskSseBroker;
     private final AppCreateTaskRunner appCreateTaskRunner;
+    private final AppIterationTaskRunner appIterationTaskRunner;
     @Qualifier("appTaskExecutor")
     private final Executor appTaskExecutor;
 
@@ -66,13 +68,17 @@ public class AppTaskRuntimeServiceImpl implements AppTaskRuntimeService {
         if (!AppTaskStatus.PENDING.name().equals(task.getStatus())) {
             return TaskStatusResponse.of(task);
         }
-        if (!AppTaskType.CREATE.name().equals(task.getTaskType())) {
+        AppTaskType taskType = resolveTaskType(task);
+        if (taskType != AppTaskType.CREATE && taskType != AppTaskType.ITERATE) {
             throw BusinessException.of(ResultCode.INVALID_PARAM, "当前任务类型暂不支持启动");
         }
+        AppTaskStep initialStep = taskType == AppTaskType.CREATE
+                ? AppTaskStep.INITIALIZING_WORKSPACE
+                : AppTaskStep.GENERATING_CODE;
 
         boolean started = appTaskService.updateChain()
                 .set(APP_TASK.STATUS, AppTaskStatus.RUNNING.name())
-                .set(APP_TASK.CURRENT_STEP, AppTaskStep.INITIALIZING_WORKSPACE.name())
+                .set(APP_TASK.CURRENT_STEP, initialStep.name())
                 .set(APP_TASK.STARTED_AT, LocalDateTime.now())
                 .where(APP_TASK.ID.eq(taskId))
                 .and(APP_TASK.USER_ID.eq(userId))
@@ -82,9 +88,21 @@ public class AppTaskRuntimeServiceImpl implements AppTaskRuntimeService {
         AppTask latestTask = appTaskService.getById(taskId);
         if (started) {
             appTaskLogPublisher.publishState(latestTask);
-            appTaskExecutor.execute(() -> appCreateTaskRunner.runCreateTask(taskId));
+            if (taskType == AppTaskType.CREATE) {
+                appTaskExecutor.execute(() -> appCreateTaskRunner.runCreateTask(taskId));
+            } else {
+                appTaskExecutor.execute(() -> appIterationTaskRunner.runIterationTask(taskId));
+            }
         }
         return TaskStatusResponse.of(latestTask);
+    }
+
+    private AppTaskType resolveTaskType(AppTask task) {
+        try {
+            return AppTaskType.valueOf(task.getTaskType());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw BusinessException.of(ResultCode.INVALID_PARAM, "未知任务类型");
+        }
     }
 
     private AppTask getOwnedTask(Long userId, Long taskId) {

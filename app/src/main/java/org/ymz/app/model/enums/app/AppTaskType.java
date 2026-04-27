@@ -12,7 +12,7 @@ import lombok.Getter;
 public enum AppTaskType {
 
     CREATE("创建应用"),
-    EDIT("修改应用"),
+    ITERATE("迭代应用"),
     DEPLOY("部署应用");
 
     private final String description;

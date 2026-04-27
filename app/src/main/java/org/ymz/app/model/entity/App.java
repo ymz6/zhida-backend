@@ -49,7 +49,7 @@ public class App implements Serializable {
     private String initPrompt;
 
     /**
-     * 应用状态：CREATING-创建中，GENERATING-生成中，BUILDING-构建中，READY-可使用，EDITING-编辑中，FAILED-失败
+     * 应用状态：CREATING-创建中，GENERATING-生成中，BUILDING-构建中，READY-可使用，ITERATING-迭代中，FAILED-失败
      */
     private String status;
 

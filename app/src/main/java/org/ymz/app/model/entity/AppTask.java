@@ -45,7 +45,7 @@ public class AppTask implements Serializable {
     private Long userId;
 
     /**
-     * 任务类型：CREATE-创建应用，EDIT-修改应用，REPAIR-修复应用，DEPLOY-部署应用
+     * 任务类型：CREATE-创建应用，ITERATE-迭代应用，REPAIR-修复应用，DEPLOY-部署应用
      */
     private String taskType;
 

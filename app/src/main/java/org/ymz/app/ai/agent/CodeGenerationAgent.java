@@ -7,6 +7,7 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
@@ -49,6 +50,7 @@ public class CodeGenerationAgent {
     private final ObjectMapper objectMapper;
     private final AppTaskLogPublisher appTaskLogPublisher;
     private final ProjectCommandRunner projectCommandRunner;
+    private final CodeGenerationChatMemoryFactory chatMemoryFactory;
 
     public void generate(App app, AppTask task, Path workspacePath) {
         WorkspaceToolExecutor tools = new WorkspaceToolExecutor(
@@ -58,7 +60,18 @@ public class CodeGenerationAgent {
                 app.getId(),
                 task.getId()
         );
-        runAgentSession(app, task, tools, initialUserMessage(app, task, tools));
+        runAgentSession(app, task, tools, initialUserMessage(app, task, tools), true);
+    }
+
+    public void iterate(App app, AppTask task, Path workspacePath) {
+        WorkspaceToolExecutor tools = new WorkspaceToolExecutor(
+                workspacePath,
+                objectMapper,
+                projectCommandRunner,
+                app.getId(),
+                task.getId()
+        );
+        runAgentSession(app, task, tools, iterationUserMessage(app, task, tools), true);
     }
 
     public void repair(App app, AppTask task, Path workspacePath, ProjectCommandResult failedCommand, int repairAttempt) {
@@ -69,15 +82,21 @@ public class CodeGenerationAgent {
                 app.getId(),
                 task.getId()
         );
-        runAgentSession(app, task, tools, repairUserMessage(app, task, tools, failedCommand, repairAttempt));
+        runAgentSession(app, task, tools, repairUserMessage(app, task, tools, failedCommand, repairAttempt), false);
     }
 
-    private void runAgentSession(App app, AppTask task, WorkspaceToolExecutor tools, String userMessage) {
-        List<ChatMessage> messages = new ArrayList<>();
-        messages.add(SystemMessage.from(loadSystemPrompt()));
-        messages.add(UserMessage.from(userMessage));
+    private void runAgentSession(
+            App app,
+            AppTask task,
+            WorkspaceToolExecutor tools,
+            String userMessage,
+            boolean rememberResult
+    ) {
+        ChatMemory chatMemory = chatMemoryFactory.create(app.getId());
+        List<ChatMessage> messages = sessionMessages(chatMemory, userMessage);
 
         boolean finished = false;
+        String finalSummary = null;
         for (int turn = 0; turn < MAX_AGENT_TURNS && !finished; turn++) {
             ChatResponse response = chat(messages, tools);
             AiMessage aiMessage = response.aiMessage();
@@ -107,6 +126,7 @@ public class CodeGenerationAgent {
 
                 if (toolResult.isFinished()) {
                     finished = true;
+                    finalSummary = toolResult.getContent();
                 }
             }
         }
@@ -114,6 +134,29 @@ public class CodeGenerationAgent {
         if (!finished) {
             throw new IllegalStateException("Agent 未在限制轮次内完成生成");
         }
+        if (rememberResult) {
+            rememberSuccessfulGeneration(chatMemory, app, task, finalSummary);
+        }
+    }
+
+    private List<ChatMessage> sessionMessages(ChatMemory chatMemory, String userMessage) {
+        List<ChatMessage> messages = new ArrayList<>();
+        messages.add(SystemMessage.from(loadSystemPrompt()));
+        for (ChatMessage message : chatMemory.messages()) {
+            if (!(message instanceof SystemMessage)) {
+                messages.add(message);
+            }
+        }
+        messages.add(UserMessage.from(userMessage));
+        return messages;
+    }
+
+    private void rememberSuccessfulGeneration(ChatMemory chatMemory, App app, AppTask task, String finalSummary) {
+        if (finalSummary == null || finalSummary.isBlank()) {
+            return;
+        }
+        chatMemory.add(UserMessage.from(compactUserMessage(app, task)));
+        chatMemory.add(AiMessage.from(finalSummary));
     }
 
     private ChatResponse chat(List<ChatMessage> messages, WorkspaceToolExecutor tools) {
@@ -247,6 +290,42 @@ public class CodeGenerationAgent {
                 当前项目文件：
                 %s
                 """.formatted(app.getName(), task.getPrompt(), files);
+    }
+
+    private String iterationUserMessage(App app, AppTask task, WorkspaceToolExecutor tools) {
+        String files;
+        try {
+            files = tools.describeCurrentFiles();
+        } catch (IOException e) {
+            files = "无法读取当前文件树：" + e.getMessage();
+        }
+
+        return """
+                应用名称：%s
+
+                这是用户和 Agent 的后续对话迭代需求，请基于已有应用继续修改，不要从零重建项目。
+
+                本轮用户输入：
+                %s
+
+                迭代要求：
+                - 保留用户未要求移除的已有页面、交互和视觉风格。
+                - 优先读取相关文件，理解当前实现后再修改。
+                - 只围绕本轮用户输入改动必要文件。
+                - 修改完成后必须调用 checkProject，并在 lint/build 全部通过后调用 finish 工具总结本轮迭代内容。
+
+                当前项目文件：
+                %s
+                """.formatted(app.getName(), task.getPrompt(), files);
+    }
+
+    private String compactUserMessage(App app, AppTask task) {
+        return """
+                应用名称：%s
+
+                用户需求：
+                %s
+                """.formatted(app.getName(), task.getPrompt());
     }
 
     String repairUserMessage(

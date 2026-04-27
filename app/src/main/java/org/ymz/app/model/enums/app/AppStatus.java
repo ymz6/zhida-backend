@@ -15,7 +15,7 @@ public enum AppStatus {
     GENERATING("生成中"),
     BUILDING("构建中"),
     READY("可使用"),
-    EDITING("编辑中"),
+    ITERATING("迭代中"),
     FAILED("失败");
 
     private final String description;
