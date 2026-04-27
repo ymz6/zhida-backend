@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 创建应用迭代响应。
+ * 创建应用任务响应。
  *
  * @author ymz
  */
@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CreateAppIterationResponse {
+public class CreateAppTaskResponse {
 
     private Long appId;
 

@@ -1,7 +1,7 @@
 package org.ymz.app.service;
 
 import org.ymz.app.model.dto.app.CreateAppIterationRequest;
-import org.ymz.app.model.dto.app.CreateAppIterationResponse;
+import org.ymz.app.model.dto.app.CreateAppTaskResponse;
 
 /**
  * 应用后续对话迭代服务。
@@ -10,5 +10,5 @@ import org.ymz.app.model.dto.app.CreateAppIterationResponse;
  */
 public interface AppIterationService {
 
-    CreateAppIterationResponse createAppIteration(Long userId, Long appId, CreateAppIterationRequest request);
+    CreateAppTaskResponse createAppIteration(Long userId, Long appId, CreateAppIterationRequest request);
 }

@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.ymz.app.ai.dto.TitleGenerateResult;
 import org.ymz.app.ai.service.TitleGenerateAssistant;
 import org.ymz.app.model.dto.app.CreateAppRequest;
-import org.ymz.app.model.dto.app.CreateAppResponse;
+import org.ymz.app.model.dto.app.CreateAppTaskResponse;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppChatMessageRole;
@@ -42,7 +42,7 @@ public class AppCreationServiceImpl implements AppCreationService {
 
     @Override
     @Transactional
-    public CreateAppResponse createApp(Long userId, CreateAppRequest request) {
+    public CreateAppTaskResponse createApp(Long userId, CreateAppRequest request) {
         String prompt = StrUtil.trim(request.getPrompt());
         TitleGenerateResult titleResult = titleGenerateAssistant.chat(prompt);
         if (titleResult == null || !titleResult.isAccepted() || StrUtil.isBlank(titleResult.getTitle())) {
@@ -88,7 +88,7 @@ public class AppCreationServiceImpl implements AppCreationService {
                 )
         );
 
-        return CreateAppResponse.builder()
+        return CreateAppTaskResponse.builder()
                 .appId(app.getId())
                 .taskId(task.getId())
                 .name(app.getName())

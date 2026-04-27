@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.ymz.app.model.dto.app.CreateAppIterationRequest;
-import org.ymz.app.model.dto.app.CreateAppIterationResponse;
+import org.ymz.app.model.dto.app.CreateAppTaskResponse;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppChatMessageRole;
@@ -43,7 +43,7 @@ public class AppIterationServiceImpl implements AppIterationService {
 
     @Override
     @Transactional
-    public CreateAppIterationResponse createAppIteration(Long userId, Long appId, CreateAppIterationRequest request) {
+    public CreateAppTaskResponse createAppIteration(Long userId, Long appId, CreateAppIterationRequest request) {
         String prompt = StrUtil.trim(request.getPrompt());
         App app = appService.getById(appId);
         if (app == null) {
@@ -84,7 +84,7 @@ public class AppIterationServiceImpl implements AppIterationService {
                 prompt
         );
 
-        return CreateAppIterationResponse.builder()
+        return CreateAppTaskResponse.builder()
                 .appId(appId)
                 .taskId(task.getId())
                 .name(app.getName())

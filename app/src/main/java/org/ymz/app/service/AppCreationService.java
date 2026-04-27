@@ -1,7 +1,7 @@
 package org.ymz.app.service;
 
 import org.ymz.app.model.dto.app.CreateAppRequest;
-import org.ymz.app.model.dto.app.CreateAppResponse;
+import org.ymz.app.model.dto.app.CreateAppTaskResponse;
 
 /**
  * 应用创建流程服务。
@@ -10,5 +10,5 @@ import org.ymz.app.model.dto.app.CreateAppResponse;
  */
 public interface AppCreationService {
 
-    CreateAppResponse createApp(Long userId, CreateAppRequest request);
+    CreateAppTaskResponse createApp(Long userId, CreateAppRequest request);
 }

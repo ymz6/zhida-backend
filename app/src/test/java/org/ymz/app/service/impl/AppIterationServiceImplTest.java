@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.ymz.app.model.dto.app.CreateAppIterationRequest;
-import org.ymz.app.model.dto.app.CreateAppIterationResponse;
+import org.ymz.app.model.dto.app.CreateAppTaskResponse;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppChatMessageRole;
@@ -41,7 +41,7 @@ class AppIterationServiceImplTest {
         Fixture fixture = fixture(AppStatus.READY, workspacePath);
         CreateAppIterationRequest request = request("加一个筛选面板");
 
-        CreateAppIterationResponse response = fixture.service.createAppIteration(10L, 1L, request);
+        CreateAppTaskResponse response = fixture.service.createAppIteration(10L, 1L, request);
 
         assertEquals(1L, response.getAppId());
         assertEquals(20L, response.getTaskId());
@@ -70,7 +70,7 @@ class AppIterationServiceImplTest {
     void failedAppWithWorkspaceCanCreateIterationTask() throws Exception {
         Fixture fixture = fixture(AppStatus.FAILED, workspacePath);
 
-        CreateAppIterationResponse response = fixture.service.createAppIteration(10L, 1L, request("继续修复页面"));
+        CreateAppTaskResponse response = fixture.service.createAppIteration(10L, 1L, request("继续修复页面"));
 
         assertEquals(20L, response.getTaskId());
         verify(fixture.appTaskService).save(any(AppTask.class));
