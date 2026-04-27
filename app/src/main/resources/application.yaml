@@ -43,3 +43,6 @@ app:
     workspace-root: tmp/app-workspaces
     preview-root: tmp/app-previews
     preview-url-prefix: /previews
+  deployment:
+    deploy-root: nginx/html/apps
+    deploy-url-prefix: http://localhost/apps

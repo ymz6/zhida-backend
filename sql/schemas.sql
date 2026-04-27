@@ -34,8 +34,11 @@ create table app
     preview_url    varchar(512)                          null comment '应用预览地址',
     cover_url      varchar(512)                          null comment '应用封面图片地址',
     deploy_status  varchar(32) default 'UNDEPLOYED'      not null comment '部署状态：UNDEPLOYED-未部署，DEPLOYING-部署中，DEPLOYED-已部署，FAILED-部署失败',
+    deploy_key     varchar(64)                           null comment '应用部署唯一标识',
     deploy_url     varchar(512)                          null comment '应用正式部署后的访问地址',
+    deploy_path    varchar(512)                          null comment '应用正式部署后的静态资源目录',
     deployed_at    datetime                              null comment '最近一次部署完成时间',
+    deploy_error_message text                             null comment '最近一次部署失败时的错误信息',
     latest_task_id bigint                                null comment '最近一次执行的应用任务 ID',
     error_message  text                                  null comment '应用最近一次失败时的错误信息',
     created_at     datetime    default CURRENT_TIMESTAMP not null comment '创建时间'
@@ -47,6 +50,9 @@ create index idx_created_at
 
 create index idx_deploy_status
     on app (deploy_status);
+
+create unique index uk_deploy_key
+    on app (deploy_key);
 
 create index idx_latest_task_id
     on app (latest_task_id);

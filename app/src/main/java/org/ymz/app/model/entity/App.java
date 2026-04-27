@@ -74,14 +74,29 @@ public class App implements Serializable {
     private String deployStatus;
 
     /**
+     * 应用部署唯一标识
+     */
+    private String deployKey;
+
+    /**
      * 应用正式部署后的访问地址
      */
     private String deployUrl;
 
     /**
+     * 应用正式部署后的静态资源目录
+     */
+    private String deployPath;
+
+    /**
      * 最近一次部署完成时间
      */
     private LocalDateTime deployedAt;
+
+    /**
+     * 最近一次部署失败时的错误信息
+     */
+    private String deployErrorMessage;
 
     /**
      * 最近一次执行的应用任务 ID

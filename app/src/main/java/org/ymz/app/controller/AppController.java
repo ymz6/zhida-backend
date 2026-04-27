@@ -12,10 +12,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.ymz.app.model.dto.app.CreateAppIterationRequest;
 import org.ymz.app.model.dto.app.CreateAppRequest;
 import org.ymz.app.model.dto.app.CreateAppTaskResponse;
+import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
 import org.ymz.app.security.LoginRequired;
 import org.ymz.app.service.AppCreationService;
+import org.ymz.app.service.AppDeploymentService;
 import org.ymz.app.service.AppIterationService;
 import org.ymz.app.web.response.Response;
 
@@ -33,6 +35,7 @@ public class AppController {
 
     private final AppCreationService appCreationService;
     private final AppIterationService appIterationService;
+    private final AppDeploymentService appDeploymentService;
 
     @PostMapping
     @Operation(operationId = "createApp")
@@ -49,5 +52,12 @@ public class AppController {
     ) {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(appIterationService.createAppIteration(authContext.getUserId(), appId, request));
+    }
+
+    @PostMapping("/{appId}/deploy")
+    @Operation(operationId = "deployApp")
+    public Response<DeployAppResponse> deployApp(@PathVariable Long appId) {
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appDeploymentService.deployApp(authContext.getUserId(), appId));
     }
 }
