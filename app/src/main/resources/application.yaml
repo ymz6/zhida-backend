@@ -46,3 +46,11 @@ app:
   deployment:
     deploy-root: nginx/html/apps
     deploy-url-prefix: http://localhost/apps
+    cover:
+      enabled: true
+      viewport-width: 1440
+      viewport-height: 900
+      page-load-timeout-seconds: 30
+      settle-delay-millis: 2000
+      quality: 0.8
+      oss-prefix: app-covers/

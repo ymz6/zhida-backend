@@ -2,6 +2,7 @@ package org.ymz.app.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.task.VirtualThreadTaskExecutor;
 
 import java.util.concurrent.Executor;
@@ -15,7 +16,13 @@ import java.util.concurrent.Executor;
 public class AppTaskExecutorConfig {
 
     @Bean("appTaskExecutor")
+    @Primary
     public Executor appTaskExecutor() {
         return new VirtualThreadTaskExecutor("app-task-");
+    }
+
+    @Bean("appCoverExecutor")
+    public Executor appCoverExecutor() {
+        return new VirtualThreadTaskExecutor("app-cover-");
     }
 }

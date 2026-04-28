@@ -31,6 +31,8 @@
         <oss.version>2.25.27</oss.version>
         <tika.version>3.2.3</tika.version>
         <imageio-webp.version>3.12.0</imageio-webp.version>
+        <selenium.version>4.33.0</selenium.version>
+        <webdrivermanager.version>6.1.0</webdrivermanager.version>
         <langchain4j.version>1.13.0-beta23</langchain4j.version>
     </properties>
 
@@ -96,6 +98,18 @@
                 <groupId>com.twelvemonkeys.imageio</groupId>
                 <artifactId>imageio-webp</artifactId>
                 <version>${imageio-webp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-java</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.github.bonigarcia</groupId>
+                <artifactId>webdrivermanager</artifactId>
+                <version>${webdrivermanager.version}</version>
             </dependency>
 
             <dependency>

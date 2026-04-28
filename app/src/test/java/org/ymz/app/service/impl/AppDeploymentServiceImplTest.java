@@ -11,6 +11,7 @@ import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.enums.app.AppDeployStatus;
 import org.ymz.app.model.enums.app.AppStatus;
+import org.ymz.app.service.AppCoverCaptureService;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
 import org.ymz.app.service.deployment.AppDeploymentFilePublisher;
@@ -18,6 +19,7 @@ import org.ymz.app.web.exception.BusinessException;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,6 +31,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -65,6 +68,14 @@ class AppDeploymentServiceImplTest {
         assertEquals("http://localhost/apps/" + deployKey + "/", successUpdate.getDeployUrl());
         assertEquals(tempDir.resolve("deployments").resolve(deployKey).toString(), successUpdate.getDeployPath());
         assertEquals("", successUpdate.getDeployErrorMessage());
+
+        ArgumentCaptor<LocalDateTime> deployedAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(fixture.appCoverCaptureService).captureCoverAsync(
+                eq(1L),
+                eq(response.getDeployUrl()),
+                deployedAtCaptor.capture()
+        );
+        assertEquals(response.getDeployedAt(), deployedAtCaptor.getValue());
     }
 
     @Test
@@ -80,6 +91,17 @@ class AppDeploymentServiceImplTest {
         ArgumentCaptor<App> appCaptor = ArgumentCaptor.forClass(App.class);
         verify(fixture.appService, atLeastOnce()).updateById(appCaptor.capture());
         assertEquals("fixed-key", appCaptor.getAllValues().getLast().getDeployKey());
+    }
+
+    @Test
+    void deployStillSucceedsWhenCoverCaptureSubmissionFails() throws Exception {
+        Fixture fixture = fixture(app(null, AppStatus.READY, workspaceWithDist()));
+        doThrow(new RuntimeException("queue full")).when(fixture.appCoverCaptureService)
+                .captureCoverAsync(any(Long.class), anyString(), any(LocalDateTime.class));
+
+        DeployAppResponse response = fixture.service.deployApp(10L, 1L);
+
+        assertEquals(AppDeployStatus.DEPLOYED.name(), response.getDeployStatus());
     }
 
     @Test
@@ -142,6 +164,7 @@ class AppDeploymentServiceImplTest {
         assertEquals(null, failureUpdate.getPreviewUrl());
         assertEquals(null, failureUpdate.getErrorMessage());
         verify(fixture.filePublisher, never()).publish(any(Path.class), anyString());
+        verify(fixture.appCoverCaptureService, never()).captureCoverAsync(any(Long.class), anyString(), any(LocalDateTime.class));
     }
 
     @Test
@@ -158,6 +181,7 @@ class AppDeploymentServiceImplTest {
         AppService appService = mock(AppService.class);
         AppTaskService appTaskService = mock(AppTaskService.class);
         AppDeploymentFilePublisher filePublisher = mock(AppDeploymentFilePublisher.class);
+        AppCoverCaptureService appCoverCaptureService = mock(AppCoverCaptureService.class);
         @SuppressWarnings("unchecked")
         UpdateChain<App> updateChain = mock(UpdateChain.class, RETURNS_SELF);
         AppDeploymentProperties properties = new AppDeploymentProperties();
@@ -180,9 +204,10 @@ class AppDeploymentServiceImplTest {
                 appService,
                 appTaskService,
                 filePublisher,
-                properties
+                properties,
+                appCoverCaptureService
         );
-        return new Fixture(service, appService, appTaskService, filePublisher, updateChain);
+        return new Fixture(service, appService, appTaskService, filePublisher, appCoverCaptureService, updateChain);
     }
 
     private App app(String deployKey, AppStatus status, Path workspacePath) {
@@ -208,6 +233,7 @@ class AppDeploymentServiceImplTest {
             AppService appService,
             AppTaskService appTaskService,
             AppDeploymentFilePublisher filePublisher,
+            AppCoverCaptureService appCoverCaptureService,
             UpdateChain<App> updateChain
     ) {
     }

@@ -4,6 +4,7 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.ymz.app.config.AppDeploymentProperties;
 import org.ymz.app.model.dto.app.DeployAppResponse;
@@ -12,6 +13,7 @@ import org.ymz.app.model.enums.app.AppDeployStatus;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskType;
+import org.ymz.app.service.AppCoverCaptureService;
 import org.ymz.app.service.AppDeploymentService;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
@@ -32,6 +34,7 @@ import static org.ymz.app.model.entity.table.AppTaskTableDef.APP_TASK;
  *
  * @author ymz
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AppDeploymentServiceImpl implements AppDeploymentService {
@@ -42,6 +45,7 @@ public class AppDeploymentServiceImpl implements AppDeploymentService {
     private final AppTaskService appTaskService;
     private final AppDeploymentFilePublisher appDeploymentFilePublisher;
     private final AppDeploymentProperties appDeploymentProperties;
+    private final AppCoverCaptureService appCoverCaptureService;
 
     @Override
     public DeployAppResponse deployApp(Long userId, Long appId) {
@@ -76,7 +80,7 @@ public class AppDeploymentServiceImpl implements AppDeploymentService {
             String deployKey = StrUtil.isBlank(app.getDeployKey()) ? generateUniqueDeployKey() : app.getDeployKey();
             Path deployPath = appDeploymentFilePublisher.publish(distPath, deployKey);
             String deployUrl = buildDeployUrl(deployKey);
-            LocalDateTime deployedAt = LocalDateTime.now();
+            LocalDateTime deployedAt = LocalDateTime.now().withNano(0);
 
             appService.updateById(App.builder()
                     .id(appId)
@@ -87,6 +91,8 @@ public class AppDeploymentServiceImpl implements AppDeploymentService {
                     .deployedAt(deployedAt)
                     .deployErrorMessage("")
                     .build());
+
+            triggerCoverCapture(appId, deployUrl, deployedAt);
 
             return DeployAppResponse.builder()
                     .appId(appId)
@@ -105,6 +111,14 @@ public class AppDeploymentServiceImpl implements AppDeploymentService {
                 throw BusinessException.of(ResultCode.INVALID_PARAM, message);
             }
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, message);
+        }
+    }
+
+    private void triggerCoverCapture(Long appId, String deployUrl, LocalDateTime deployedAt) {
+        try {
+            appCoverCaptureService.captureCoverAsync(appId, deployUrl, deployedAt);
+        } catch (Exception e) {
+            log.warn("提交应用封面生成任务失败: appId={}, deployUrl={}", appId, deployUrl, e);
         }
     }
 

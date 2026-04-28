@@ -122,6 +122,17 @@
             <artifactId>langchain4j-community-redis</artifactId>
         </dependency>
 
+        <!-- Selenium 网页截图 -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.bonigarcia</groupId>
+            <artifactId>webdrivermanager</artifactId>
+        </dependency>
+
+
     </dependencies>
 
     <build>
