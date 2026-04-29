@@ -56,14 +56,14 @@ public class LLMsConfig {
         }
 
         return OpenAiStreamingChatModel.builder()
-                .baseUrl("https://open.bigmodel.cn/api/paas/v4")
+                .baseUrl("https://api.deepseek.com")
                 .apiKey(API_KEY)
-                .modelName("glm-4.7")
+                .modelName("deepseek-v4-pro")
                 .temperature(0.1)
                 .maxTokens(16384)
                 .timeout(Duration.ofMinutes(30))
                 .customParameters(Map.of(
-                        // 暂时禁用 GLM 的思考模式，后续会考虑打开
+                        // 暂时禁用思考模式，后续会考虑打开
                         "thinking", Map.of("type", "disabled")))
                 .logRequests(true)
                 .logResponses(true)
