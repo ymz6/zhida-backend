@@ -121,6 +121,9 @@ create table app_chat_message
 create index idx_app_created_at
     on app_chat_message (app_id, created_at);
 
+create index idx_app_id_id
+    on app_chat_message (app_id, id);
+
 create index idx_app_id
     on app_chat_message (app_id);
 
@@ -132,6 +135,9 @@ create index idx_role
 
 create index idx_task_created_at
     on app_chat_message (task_id, created_at);
+
+create index idx_task_id_id
+    on app_chat_message (task_id, id);
 
 create index idx_task_id
     on app_chat_message (task_id);

@@ -16,6 +16,7 @@ import org.ymz.app.model.dto.app.AppTaskInfo;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppTasksRequest;
 import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.dto.page.SortablePageQuery;
 import org.ymz.app.model.entity.App;
@@ -27,6 +28,9 @@ import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.ymz.app.model.entity.table.AppChatMessageTableDef.APP_CHAT_MESSAGE;
 import static org.ymz.app.model.entity.table.AppTableDef.APP;
@@ -93,7 +97,7 @@ public class AppQueryServiceImpl implements AppQueryService {
     }
 
     @Override
-    public PageResult<AppChatMessageInfo> listAppMessages(
+    public CursorResult<AppChatMessageInfo> listAppMessages(
             Long userId,
             Long appId,
             ListAppMessagesRequest request
@@ -112,11 +116,22 @@ public class AppQueryServiceImpl implements AppQueryService {
                 .from(APP_CHAT_MESSAGE)
                 .where(APP_CHAT_MESSAGE.APP_ID.eq(appId))
                 .and(APP_CHAT_MESSAGE.TASK_ID.eq(taskId, If::notNull))
-                .orderBy(APP_CHAT_MESSAGE.CREATED_AT.asc())
-                .orderBy(APP_CHAT_MESSAGE.ID.asc());
+                .and(APP_CHAT_MESSAGE.ID.lt(request.getBefore(), If::notNull))
+                .orderBy(APP_CHAT_MESSAGE.ID.desc())
+                .limit(request.getLimit() + 1);
 
-        Page<AppChatMessage> page = appChatMessageService.page(request.toPage(), query);
-        return PageResult.of(page, appConverter::toAppChatMessageInfo);
+        List<AppChatMessage> messages = appChatMessageService.list(query);
+        boolean hasMore = messages.size() > request.getLimit();
+        if (hasMore) {
+            messages = messages.subList(0, request.getLimit());
+        }
+
+        List<AppChatMessageInfo> list = new ArrayList<>(messages.size());
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            list.add(appConverter.toAppChatMessageInfo(messages.get(i)));
+        }
+        Long nextCursor = hasMore && !list.isEmpty() ? list.getFirst().getId() : null;
+        return CursorResult.of(list, nextCursor, hasMore);
     }
 
     @Override

@@ -22,6 +22,7 @@ import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppTasksRequest;
 import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
@@ -92,7 +93,7 @@ public class AppController {
 
     @GetMapping("/{appId}/messages")
     @Operation(operationId = "listAppMessages")
-    public Response<PageResult<AppChatMessageInfo>> listAppMessages(
+    public Response<CursorResult<AppChatMessageInfo>> listAppMessages(
             @PathVariable Long appId,
             @Validated ListAppMessagesRequest request
     ) {

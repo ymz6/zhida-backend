@@ -12,6 +12,7 @@ import org.ymz.app.model.dto.app.AppTaskInfo;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppTasksRequest;
 import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
@@ -30,6 +31,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -128,29 +131,57 @@ class AppQueryServiceImplTest {
     }
 
     @Test
-    void listAppMessagesCanFilterTaskAndOrdersChronologically() {
+    void listAppMessagesReturnsLatestLimitChronologically() {
+        Fixture fixture = fixture();
+        when(fixture.appService.getById(1L)).thenReturn(ownedApp());
+
+        ListAppMessagesRequest request = new ListAppMessagesRequest();
+        request.setLimit(2);
+        when(fixture.appChatMessageService.list(any(QueryWrapper.class)))
+                .thenReturn(List.of(
+                        message(5L, null),
+                        message(4L, null),
+                        message(3L, null)
+                ));
+
+        CursorResult<AppChatMessageInfo> result = fixture.service.listAppMessages(10L, 1L, request);
+
+        assertEquals(List.of(4L, 5L), result.getList().stream().map(AppChatMessageInfo::getId).toList());
+        assertTrue(result.isHasMore());
+        assertEquals(4L, result.getNextCursor());
+        QueryWrapper query = captureQuery(fixture.appChatMessageService);
+        String sql = query.toSQL().toLowerCase();
+        assertTrue(sql.contains("app_id"));
+        assertTrue(sql.contains("id") && sql.contains("desc"));
+        assertTrue(sql.contains("limit"));
+    }
+
+    @Test
+    void listAppMessagesLoadsBeforeCursorAndCanFilterTask() {
         Fixture fixture = fixture();
         when(fixture.appService.getById(1L)).thenReturn(ownedApp());
         when(fixture.appTaskService.getById(2L)).thenReturn(ownedTask(1L));
-        AppChatMessage message = AppChatMessage.builder()
-                .id(3L)
-                .appId(1L)
-                .taskId(2L)
-                .content("done")
-                .build();
-        when(fixture.appChatMessageService.page(any(Page.class), any(QueryWrapper.class)))
-                .thenReturn(new Page<>(List.of(message), 1, 10, 1));
 
         ListAppMessagesRequest request = new ListAppMessagesRequest();
         request.setTaskId(2L);
-        PageResult<AppChatMessageInfo> result = fixture.service.listAppMessages(10L, 1L, request);
+        request.setLimit(2);
+        request.setBefore(4L);
+        when(fixture.appChatMessageService.list(any(QueryWrapper.class)))
+                .thenReturn(List.of(
+                        message(3L, 2L),
+                        message(2L, 2L)
+                ));
 
-        assertEquals(3L, result.getList().getFirst().getId());
+        CursorResult<AppChatMessageInfo> result = fixture.service.listAppMessages(10L, 1L, request);
+
+        assertEquals(List.of(2L, 3L), result.getList().stream().map(AppChatMessageInfo::getId).toList());
+        assertFalse(result.isHasMore());
+        assertNull(result.getNextCursor());
         QueryWrapper query = captureQuery(fixture.appChatMessageService);
         String sql = query.toSQL().toLowerCase();
         assertTrue(sql.contains("app_id"));
         assertTrue(sql.contains("task_id"));
-        assertTrue(sql.contains("created_at") && sql.contains("asc"));
+        assertTrue(sql.contains("id") && sql.contains("<") && sql.contains("4"));
     }
 
     @Test
@@ -167,7 +198,7 @@ class AppQueryServiceImplTest {
         );
 
         assertEquals(ResultCode.NOT_FOUND, exception.getResultCode());
-        verify(fixture.appChatMessageService, never()).page(any(Page.class), any(QueryWrapper.class));
+        verify(fixture.appChatMessageService, never()).list(any(QueryWrapper.class));
     }
 
     @Test
@@ -212,6 +243,15 @@ class AppQueryServiceImplTest {
                 .build();
     }
 
+    private AppChatMessage message(Long id, Long taskId) {
+        return AppChatMessage.builder()
+                .id(id)
+                .appId(1L)
+                .taskId(taskId)
+                .content("msg-" + id)
+                .build();
+    }
+
     private QueryWrapper captureQuery(AppService appService) {
         ArgumentCaptor<QueryWrapper> queryCaptor = ArgumentCaptor.forClass(QueryWrapper.class);
         verify(appService).page(any(Page.class), queryCaptor.capture());
@@ -226,7 +266,7 @@ class AppQueryServiceImplTest {
 
     private QueryWrapper captureQuery(AppChatMessageService appChatMessageService) {
         ArgumentCaptor<QueryWrapper> queryCaptor = ArgumentCaptor.forClass(QueryWrapper.class);
-        verify(appChatMessageService).page(any(Page.class), queryCaptor.capture());
+        verify(appChatMessageService).list(queryCaptor.capture());
         return queryCaptor.getValue();
     }
 

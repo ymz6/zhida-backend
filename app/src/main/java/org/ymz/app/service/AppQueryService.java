@@ -7,6 +7,7 @@ import org.ymz.app.model.dto.app.AppTaskInfo;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppTasksRequest;
 import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 
 /**
@@ -22,7 +23,7 @@ public interface AppQueryService {
 
     PageResult<AppTaskInfo> listAppTasks(Long userId, Long appId, ListAppTasksRequest request);
 
-    PageResult<AppChatMessageInfo> listAppMessages(Long userId, Long appId, ListAppMessagesRequest request);
+    CursorResult<AppChatMessageInfo> listAppMessages(Long userId, Long appId, ListAppMessagesRequest request);
 
     AppTaskInfo getTask(Long userId, Long taskId);
 }
