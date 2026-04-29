@@ -21,7 +21,7 @@ import org.ymz.app.model.dto.app.CreateAppTaskResponse;
 import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppTasksRequest;
-import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.app.ListMyAppsRequest;
 import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
@@ -50,11 +50,11 @@ public class AppController {
     private final AppDeploymentService appDeploymentService;
     private final AppQueryService appQueryService;
 
-    @GetMapping
-    @Operation(operationId = "listApps")
-    public Response<PageResult<AppSummary>> listApps(@Validated ListAppsRequest request) {
+    @GetMapping("/mine")
+    @Operation(operationId = "listMyApps")
+    public Response<PageResult<AppSummary>> listMyApps(@Validated ListMyAppsRequest request) {
         AuthContext authContext = AuthContextHolder.get();
-        return Response.ok(appQueryService.listApps(authContext.getUserId(), request));
+        return Response.ok(appQueryService.listMyApps(authContext.getUserId(), request));
     }
 
     @GetMapping("/{appId}")

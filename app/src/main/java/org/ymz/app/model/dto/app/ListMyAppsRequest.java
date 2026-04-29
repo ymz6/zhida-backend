@@ -8,13 +8,13 @@ import org.ymz.app.model.dto.page.SortablePageQuery;
 import static org.ymz.app.model.entity.table.AppTableDef.APP;
 
 /**
- * 分页查询应用列表。
+ * 分页查询我的应用列表。
  *
  * @author ymz
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class ListAppsRequest extends SortablePageQuery {
+public class ListMyAppsRequest extends SortablePageQuery {
 
     private String keyword;
 

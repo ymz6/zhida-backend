@@ -30,6 +30,8 @@ public class AppSummary {
 
     private String errorMessage;
 
+    private AppAuthor author;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime deployedAt;

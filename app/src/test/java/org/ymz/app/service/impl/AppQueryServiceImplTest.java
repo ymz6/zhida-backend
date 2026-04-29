@@ -11,12 +11,13 @@ import org.ymz.app.model.dto.app.AppSummary;
 import org.ymz.app.model.dto.app.AppTaskInfo;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppTasksRequest;
-import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.app.ListMyAppsRequest;
 import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
+import org.ymz.app.model.entity.User;
 import org.ymz.app.model.enums.app.AppDeployStatus;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
@@ -24,6 +25,7 @@ import org.ymz.app.model.enums.app.AppTaskType;
 import org.ymz.app.service.AppChatMessageService;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
+import org.ymz.app.service.UserService;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
@@ -45,9 +47,9 @@ import static org.mockito.Mockito.when;
 class AppQueryServiceImplTest {
 
     @Test
-    void listAppsFiltersCurrentUserAndMapsPage() {
+    void listMyAppsFiltersCurrentUserAndMapsPage() {
         Fixture fixture = fixture();
-        ListAppsRequest request = new ListAppsRequest();
+        ListMyAppsRequest request = new ListMyAppsRequest();
         request.setKeyword("dashboard");
         request.setStatus(AppStatus.READY.name());
         request.setDeployStatus(AppDeployStatus.DEPLOYED.name());
@@ -61,11 +63,15 @@ class AppQueryServiceImplTest {
                 .build();
         when(fixture.appService.page(any(Page.class), any(QueryWrapper.class)))
                 .thenReturn(new Page<>(List.of(app), 1, 10, 1));
+        when(fixture.userService.getById(10L)).thenReturn(author());
 
-        PageResult<AppSummary> result = fixture.service.listApps(10L, request);
+        PageResult<AppSummary> result = fixture.service.listMyApps(10L, request);
 
         assertEquals(1, result.getTotal());
         assertEquals(1L, result.getList().getFirst().getId());
+        assertEquals(10L, result.getList().getFirst().getAuthor().getId());
+        assertEquals("作者", result.getList().getFirst().getAuthor().getNickname());
+        assertEquals("https://example.com/avatar.png", result.getList().getFirst().getAuthor().getAvatar());
         QueryWrapper query = captureQuery(fixture.appService);
         String sql = query.toSQL().toLowerCase();
         assertTrue(sql.contains("user_id"));
@@ -79,11 +85,15 @@ class AppQueryServiceImplTest {
     void getAppReturnsOwnedApp() {
         Fixture fixture = fixture();
         when(fixture.appService.getById(1L)).thenReturn(ownedApp());
+        when(fixture.userService.getById(10L)).thenReturn(author());
 
         AppDetail detail = fixture.service.getApp(10L, 1L);
 
         assertEquals(1L, detail.getId());
         assertEquals("prompt", detail.getInitPrompt());
+        assertEquals(10L, detail.getAuthor().getId());
+        assertEquals("作者", detail.getAuthor().getNickname());
+        assertEquals("https://example.com/avatar.png", detail.getAuthor().getAvatar());
     }
 
     @Test
@@ -215,13 +225,15 @@ class AppQueryServiceImplTest {
         AppService appService = mock(AppService.class);
         AppTaskService appTaskService = mock(AppTaskService.class);
         AppChatMessageService appChatMessageService = mock(AppChatMessageService.class);
+        UserService userService = mock(UserService.class);
         AppQueryServiceImpl service = new AppQueryServiceImpl(
                 appService,
                 appTaskService,
                 appChatMessageService,
+                userService,
                 new FakeAppConverter()
         );
-        return new Fixture(service, appService, appTaskService, appChatMessageService);
+        return new Fixture(service, appService, appTaskService, appChatMessageService, userService);
     }
 
     private App ownedApp() {
@@ -240,6 +252,14 @@ class AppQueryServiceImplTest {
                 .appId(appId)
                 .userId(10L)
                 .taskType(AppTaskType.CREATE.name())
+                .build();
+    }
+
+    private User author() {
+        return User.builder()
+                .id(10L)
+                .nickname("作者")
+                .avatar("https://example.com/avatar.png")
                 .build();
     }
 
@@ -274,7 +294,8 @@ class AppQueryServiceImplTest {
             AppQueryServiceImpl service,
             AppService appService,
             AppTaskService appTaskService,
-            AppChatMessageService appChatMessageService
+            AppChatMessageService appChatMessageService,
+            UserService userService
     ) {
     }
 

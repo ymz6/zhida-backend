@@ -6,7 +6,7 @@ import org.ymz.app.model.dto.app.AppSummary;
 import org.ymz.app.model.dto.app.AppTaskInfo;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppTasksRequest;
-import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.app.ListMyAppsRequest;
 import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 
@@ -17,7 +17,7 @@ import org.ymz.app.model.dto.page.PageResult;
  */
 public interface AppQueryService {
 
-    PageResult<AppSummary> listApps(Long userId, ListAppsRequest request);
+    PageResult<AppSummary> listMyApps(Long userId, ListMyAppsRequest request);
 
     AppDetail getApp(Long userId, Long appId);
 

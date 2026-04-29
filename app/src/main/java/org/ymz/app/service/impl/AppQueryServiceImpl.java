@@ -9,23 +9,26 @@ import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.ymz.app.converter.AppConverter;
+import org.ymz.app.model.dto.app.AppAuthor;
 import org.ymz.app.model.dto.app.AppChatMessageInfo;
 import org.ymz.app.model.dto.app.AppDetail;
 import org.ymz.app.model.dto.app.AppSummary;
 import org.ymz.app.model.dto.app.AppTaskInfo;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppTasksRequest;
-import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.app.ListMyAppsRequest;
 import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.dto.page.SortablePageQuery;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
+import org.ymz.app.model.entity.User;
 import org.ymz.app.service.AppChatMessageService;
 import org.ymz.app.service.AppQueryService;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
+import org.ymz.app.service.UserService;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
@@ -48,10 +51,11 @@ public class AppQueryServiceImpl implements AppQueryService {
     private final AppService appService;
     private final AppTaskService appTaskService;
     private final AppChatMessageService appChatMessageService;
+    private final UserService userService;
     private final AppConverter appConverter;
 
     @Override
-    public PageResult<AppSummary> listApps(Long userId, ListAppsRequest request) {
+    public PageResult<AppSummary> listMyApps(Long userId, ListMyAppsRequest request) {
         QueryColumn sortColumn = request.resolveSortColumn();
         QueryWrapper query = QueryWrapper.create()
                 .select(APP.ALL_COLUMNS)
@@ -72,12 +76,20 @@ public class AppQueryServiceImpl implements AppQueryService {
         }
 
         Page<App> page = appService.page(request.toPage(), query);
-        return PageResult.of(page, appConverter::toAppSummary);
+        AppAuthor author = toAppAuthor(userService.getById(userId));
+        return PageResult.of(page, app -> {
+            AppSummary summary = appConverter.toAppSummary(app);
+            summary.setAuthor(author);
+            return summary;
+        });
     }
 
     @Override
     public AppDetail getApp(Long userId, Long appId) {
-        return appConverter.toAppDetail(getOwnedApp(userId, appId));
+        App app = getOwnedApp(userId, appId);
+        AppDetail detail = appConverter.toAppDetail(app);
+        detail.setAuthor(toAppAuthor(userService.getById(app.getUserId())));
+        return detail;
     }
 
     @Override
@@ -159,5 +171,17 @@ public class AppQueryServiceImpl implements AppQueryService {
             throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
         return task;
+    }
+
+    private AppAuthor toAppAuthor(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        AppAuthor author = new AppAuthor();
+        author.setId(user.getId());
+        author.setNickname(user.getNickname());
+        author.setAvatar(user.getAvatar());
+        return author;
     }
 }
