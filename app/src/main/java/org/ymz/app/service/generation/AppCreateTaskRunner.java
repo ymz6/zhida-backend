@@ -11,6 +11,7 @@ import org.ymz.app.model.enums.app.AppChatMessageType;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskStep;
+import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
 
@@ -37,6 +38,7 @@ public class AppCreateTaskRunner {
     private final ProjectWorkspaceManager projectWorkspaceManager;
     private final CodeGenerationAgent codeGenerationAgent;
     private final ProjectCommandRunner projectCommandRunner;
+    private final AppTaskMetrics appTaskMetrics;
 
     public void runCreateTask(Long taskId) {
         AppTask task = appTaskService.getById(taskId);
@@ -112,7 +114,9 @@ public class AppCreateTaskRunner {
                     .status(AppStatus.READY.name())
                     .errorMessage("")
                     .build());
-            updateTask(task.getId(), AppTaskStatus.SUCCESS, AppTaskStep.FINISHED, "应用生成成功", null, LocalDateTime.now());
+            LocalDateTime finishedAt = LocalDateTime.now();
+            updateTask(task.getId(), AppTaskStatus.SUCCESS, AppTaskStep.FINISHED, "应用生成成功", null, finishedAt);
+            appTaskMetrics.recordCompleted(task, AppTaskStatus.SUCCESS, finishedAt);
             task = appTaskService.getById(task.getId());
             appTaskLogPublisher.publishState(task);
             appTaskLogPublisher.appendMessage(
@@ -193,7 +197,9 @@ public class AppCreateTaskRunner {
                     .errorMessage(message)
                     .build());
         }
-        updateTask(task.getId(), AppTaskStatus.FAILED, AppTaskStep.FINISHED, null, message, LocalDateTime.now());
+        LocalDateTime finishedAt = LocalDateTime.now();
+        updateTask(task.getId(), AppTaskStatus.FAILED, AppTaskStep.FINISHED, null, message, finishedAt);
+        appTaskMetrics.recordCompleted(task, AppTaskStatus.FAILED, finishedAt);
         AppTask latestTask = appTaskService.getById(task.getId());
         appTaskLogPublisher.publishState(latestTask);
         appTaskLogPublisher.appendMessage(

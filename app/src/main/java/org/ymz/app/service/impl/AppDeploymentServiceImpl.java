@@ -9,10 +9,13 @@ import org.springframework.stereotype.Service;
 import org.ymz.app.config.AppDeploymentProperties;
 import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.model.entity.App;
+import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppDeployStatus;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
+import org.ymz.app.model.enums.app.AppTaskStep;
 import org.ymz.app.model.enums.app.AppTaskType;
+import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppCoverCaptureService;
 import org.ymz.app.service.AppDeploymentService;
 import org.ymz.app.service.AppService;
@@ -46,6 +49,7 @@ public class AppDeploymentServiceImpl implements AppDeploymentService {
     private final AppDeploymentFilePublisher appDeploymentFilePublisher;
     private final AppDeploymentProperties appDeploymentProperties;
     private final AppCoverCaptureService appCoverCaptureService;
+    private final AppTaskMetrics appTaskMetrics;
 
     @Override
     public DeployAppResponse deployApp(Long userId, Long appId) {
@@ -75,12 +79,32 @@ public class AppDeploymentServiceImpl implements AppDeploymentService {
             throw BusinessException.of(ResultCode.INVALID_PARAM, "当前应用正在部署，请稍后再试");
         }
 
+        LocalDateTime startedAt = LocalDateTime.now();
+        AppTask deployTask = AppTask.builder()
+                .appId(appId)
+                .userId(userId)
+                .taskType(AppTaskType.DEPLOY.name())
+                .prompt("部署应用")
+                .status(AppTaskStatus.RUNNING.name())
+                .currentStep(AppTaskStep.DEPLOYING.name())
+                .createdAt(startedAt)
+                .startedAt(startedAt)
+                .build();
+        appTaskService.save(deployTask);
+        appTaskMetrics.recordCreated(AppTaskType.DEPLOY);
+        appTaskMetrics.recordStarted(deployTask);
+        appService.updateById(App.builder()
+                .id(appId)
+                .latestTaskId(deployTask.getId())
+                .build());
+
         try {
             Path distPath = resolveDistPath(app);
             String deployKey = StrUtil.isBlank(app.getDeployKey()) ? generateUniqueDeployKey() : app.getDeployKey();
             Path deployPath = appDeploymentFilePublisher.publish(distPath, deployKey);
             String deployUrl = buildDeployUrl(deployKey);
-            LocalDateTime deployedAt = LocalDateTime.now().withNano(0);
+            LocalDateTime taskFinishedAt = LocalDateTime.now();
+            LocalDateTime deployedAt = taskFinishedAt.withNano(0);
 
             appService.updateById(App.builder()
                     .id(appId)
@@ -93,6 +117,7 @@ public class AppDeploymentServiceImpl implements AppDeploymentService {
                     .build());
 
             triggerCoverCapture(appId, deployUrl, deployedAt);
+            completeDeployTask(deployTask, AppTaskStatus.SUCCESS, "应用部署成功", null, taskFinishedAt);
 
             return DeployAppResponse.builder()
                     .appId(appId)
@@ -107,11 +132,30 @@ public class AppDeploymentServiceImpl implements AppDeploymentService {
                     .deployStatus(AppDeployStatus.FAILED.name())
                     .deployErrorMessage(message)
                     .build());
+            completeDeployTask(deployTask, AppTaskStatus.FAILED, null, message, LocalDateTime.now());
             if (e instanceof IllegalStateException) {
                 throw BusinessException.of(ResultCode.INVALID_PARAM, message);
             }
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, message);
         }
+    }
+
+    private void completeDeployTask(
+            AppTask deployTask,
+            AppTaskStatus status,
+            String resultSummary,
+            String errorMessage,
+            LocalDateTime finishedAt
+    ) {
+        appTaskService.updateById(AppTask.builder()
+                .id(deployTask.getId())
+                .status(status.name())
+                .currentStep(AppTaskStep.FINISHED.name())
+                .resultSummary(resultSummary)
+                .errorMessage(errorMessage)
+                .finishedAt(finishedAt)
+                .build());
+        appTaskMetrics.recordCompleted(deployTask, status, finishedAt);
     }
 
     private void triggerCoverCapture(Long appId, String deployUrl, LocalDateTime deployedAt) {

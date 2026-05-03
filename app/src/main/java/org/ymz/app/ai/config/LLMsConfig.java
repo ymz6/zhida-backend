@@ -3,6 +3,7 @@ package org.ymz.app.ai.config;
 import cn.hutool.core.util.StrUtil;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
@@ -10,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -24,7 +26,7 @@ public class LLMsConfig {
      * 标题生成模型
      */
     @Bean
-    public ChatModel titleGenerateModel() {
+    public ChatModel titleGenerateModel(List<ChatModelListener> chatModelListeners) {
         final String API_KEY = System.getenv("ZHIDA_TITLE_GEN_API_KEY");
         if (StrUtil.isBlank(API_KEY)) {
             throw new IllegalStateException("未检测到环境变量 ZHIDA_TITLE_GEN_API_KEY，请先在操作系统中设置");
@@ -40,6 +42,7 @@ public class LLMsConfig {
                 .customParameters(
                         // 禁用 Qwen 的思考模式
                         Map.of("enable_thinking", false))
+                .listeners(chatModelListeners)
                 .logRequests(true)
                 .logResponses(true)
                 .build();
@@ -49,7 +52,7 @@ public class LLMsConfig {
      * 代码生成模型，本 Agent 应用的大脑
      */
     @Bean
-    public StreamingChatModel codeGenerateModel() {
+    public StreamingChatModel codeGenerateModel(List<ChatModelListener> chatModelListeners) {
         final String API_KEY = System.getenv("ZHIDA_CODE_GEN_API_KEY");
         if (StrUtil.isBlank(API_KEY)) {
             throw new IllegalStateException("未检测到环境变量 ZHIDA_CODE_GEN_API_KEY，请先在操作系统中设置");
@@ -65,6 +68,7 @@ public class LLMsConfig {
                 .customParameters(Map.of(
                         // 暂时禁用思考模式，后续会考虑打开
                         "thinking", Map.of("type", "disabled")))
+                .listeners(chatModelListeners)
                 .logRequests(true)
                 .logResponses(true)
                 .build();

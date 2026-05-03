@@ -14,6 +14,7 @@ import org.ymz.app.model.enums.app.AppChatMessageType;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskType;
+import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppIterationService;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
@@ -40,6 +41,7 @@ public class AppIterationServiceImpl implements AppIterationService {
     private final AppService appService;
     private final AppTaskService appTaskService;
     private final AppTaskLogPublisher appTaskLogPublisher;
+    private final AppTaskMetrics appTaskMetrics;
 
     @Override
     @Transactional
@@ -72,6 +74,7 @@ public class AppIterationServiceImpl implements AppIterationService {
                 .createdAt(now)
                 .build();
         appTaskService.save(task);
+        appTaskMetrics.recordCreated(AppTaskType.ITERATE);
 
         app.setLatestTaskId(task.getId());
         appService.updateById(app);

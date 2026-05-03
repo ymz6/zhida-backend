@@ -9,6 +9,7 @@ import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskStep;
 import org.ymz.app.model.enums.app.AppTaskType;
+import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppTaskService;
 import org.ymz.app.service.generation.AppCreateTaskRunner;
 import org.ymz.app.service.generation.AppIterationTaskRunner;
@@ -69,6 +70,7 @@ class AppTaskRuntimeServiceImplTest {
         AppTaskSseBroker appTaskSseBroker = mock(AppTaskSseBroker.class);
         AppCreateTaskRunner appCreateTaskRunner = mock(AppCreateTaskRunner.class);
         AppIterationTaskRunner appIterationTaskRunner = mock(AppIterationTaskRunner.class);
+        AppTaskMetrics appTaskMetrics = mock(AppTaskMetrics.class);
         @SuppressWarnings("unchecked")
         UpdateChain<AppTask> updateChain = mock(UpdateChain.class, RETURNS_SELF);
 
@@ -93,6 +95,7 @@ class AppTaskRuntimeServiceImplTest {
                 appTaskSseBroker,
                 appCreateTaskRunner,
                 appIterationTaskRunner,
+                appTaskMetrics,
                 Runnable::run
         );
         return new Fixture(service, updateChain, appCreateTaskRunner, appIterationTaskRunner);

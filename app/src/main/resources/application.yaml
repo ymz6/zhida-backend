@@ -1,6 +1,6 @@
 spring:
   application:
-    name: java-backend-starter
+    name: zhida
   servlet:
     multipart:
       # 全局上传保护阈值，具体业务限制在各自 Service 中校验
@@ -22,6 +22,19 @@ springdoc:
     path: /v1/api-docs
   swagger-ui:
     enabled: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
 mybatis-flex:
   configuration:
     # 方便开发阶段排查问题的日志
@@ -54,3 +67,6 @@ app:
       settle-delay-millis: 2000
       quality: 0.8
       oss-prefix: app-covers/
+  monitoring:
+    prometheus:
+      base-url: http://localhost:9090

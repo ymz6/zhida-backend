@@ -20,3 +20,5 @@ tmp
 openspec
 project-template
 nginx
+prometheus-3.11.3.windows-amd64
+docs

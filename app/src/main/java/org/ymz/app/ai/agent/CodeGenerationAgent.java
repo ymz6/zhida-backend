@@ -8,6 +8,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.model.chat.ChatRequestOptions;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
@@ -19,6 +20,7 @@ import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppChatMessageRole;
 import org.ymz.app.model.enums.app.AppChatMessageType;
+import org.ymz.app.monitoring.LlmMonitoringAttributes;
 import org.ymz.app.service.generation.AppTaskLogPublisher;
 import org.ymz.app.service.generation.ProjectCommandResult;
 import org.ymz.app.service.generation.ProjectCommandRunner;
@@ -60,7 +62,14 @@ public class CodeGenerationAgent {
                 app.getId(),
                 task.getId()
         );
-        runAgentSession(app, task, tools, initialUserMessage(app, task, tools), true);
+        runAgentSession(
+                app,
+                task,
+                tools,
+                initialUserMessage(app, task, tools),
+                LlmMonitoringAttributes.SCENARIO_CODE_GENERATION_CREATE,
+                true
+        );
     }
 
     public void iterate(App app, AppTask task, Path workspacePath) {
@@ -71,7 +80,14 @@ public class CodeGenerationAgent {
                 app.getId(),
                 task.getId()
         );
-        runAgentSession(app, task, tools, iterationUserMessage(app, task, tools), true);
+        runAgentSession(
+                app,
+                task,
+                tools,
+                iterationUserMessage(app, task, tools),
+                LlmMonitoringAttributes.SCENARIO_CODE_GENERATION_ITERATE,
+                true
+        );
     }
 
     public void repair(App app, AppTask task, Path workspacePath, ProjectCommandResult failedCommand, int repairAttempt) {
@@ -82,7 +98,14 @@ public class CodeGenerationAgent {
                 app.getId(),
                 task.getId()
         );
-        runAgentSession(app, task, tools, repairUserMessage(app, task, tools, failedCommand, repairAttempt), false);
+        runAgentSession(
+                app,
+                task,
+                tools,
+                repairUserMessage(app, task, tools, failedCommand, repairAttempt),
+                LlmMonitoringAttributes.SCENARIO_CODE_GENERATION_REPAIR,
+                false
+        );
     }
 
     private void runAgentSession(
@@ -90,6 +113,7 @@ public class CodeGenerationAgent {
             AppTask task,
             WorkspaceToolExecutor tools,
             String userMessage,
+            String scenario,
             boolean rememberResult
     ) {
         ChatMemory chatMemory = chatMemoryFactory.create(app.getId());
@@ -98,7 +122,7 @@ public class CodeGenerationAgent {
         boolean finished = false;
         String finalSummary = null;
         for (int turn = 0; turn < MAX_AGENT_TURNS && !finished; turn++) {
-            ChatResponse response = chat(messages, tools);
+            ChatResponse response = chat(app, task, scenario, messages, tools);
             AiMessage aiMessage = response.aiMessage();
             if (aiMessage.text() != null && !aiMessage.text().isBlank()) {
                 publishAssistantMessage(app, task, aiMessage.text());
@@ -159,7 +183,13 @@ public class CodeGenerationAgent {
         chatMemory.add(AiMessage.from(finalSummary));
     }
 
-    private ChatResponse chat(List<ChatMessage> messages, WorkspaceToolExecutor tools) {
+    private ChatResponse chat(
+            App app,
+            AppTask task,
+            String scenario,
+            List<ChatMessage> messages,
+            WorkspaceToolExecutor tools
+    ) {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<ChatResponse> responseRef = new AtomicReference<>();
         AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -168,8 +198,13 @@ public class CodeGenerationAgent {
                 .messages(messages)
                 .toolSpecifications(tools.toolSpecifications())
                 .build();
+        ChatRequestOptions options = ChatRequestOptions.builder()
+                .addListenerAttribute(LlmMonitoringAttributes.SCENARIO, scenario)
+                .addListenerAttribute(LlmMonitoringAttributes.APP_ID, app.getId())
+                .addListenerAttribute(LlmMonitoringAttributes.TASK_ID, task.getId())
+                .build();
 
-        codeGenerateModel.chat(request, new StreamingChatResponseHandler() {
+        codeGenerateModel.chat(request, options, new StreamingChatResponseHandler() {
             @Override
             public void onCompleteResponse(ChatResponse completeResponse) {
                 responseRef.set(completeResponse);

@@ -12,6 +12,7 @@ import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskStep;
 import org.ymz.app.model.enums.app.AppTaskType;
+import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppTaskRuntimeService;
 import org.ymz.app.service.AppTaskService;
 import org.ymz.app.service.generation.AppCreateTaskRunner;
@@ -41,6 +42,7 @@ public class AppTaskRuntimeServiceImpl implements AppTaskRuntimeService {
     private final AppTaskSseBroker appTaskSseBroker;
     private final AppCreateTaskRunner appCreateTaskRunner;
     private final AppIterationTaskRunner appIterationTaskRunner;
+    private final AppTaskMetrics appTaskMetrics;
     @Qualifier("appTaskExecutor")
     private final Executor appTaskExecutor;
 
@@ -87,6 +89,7 @@ public class AppTaskRuntimeServiceImpl implements AppTaskRuntimeService {
 
         AppTask latestTask = appTaskService.getById(taskId);
         if (started) {
+            appTaskMetrics.recordStarted(latestTask);
             appTaskLogPublisher.publishState(latestTask);
             if (taskType == AppTaskType.CREATE) {
                 appTaskExecutor.execute(() -> appCreateTaskRunner.runCreateTask(taskId));

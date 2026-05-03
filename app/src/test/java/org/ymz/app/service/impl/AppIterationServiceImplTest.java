@@ -13,6 +13,7 @@ import org.ymz.app.model.enums.app.AppChatMessageType;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskType;
+import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
 import org.ymz.app.service.generation.AppTaskLogPublisher;
@@ -114,6 +115,7 @@ class AppIterationServiceImplTest {
         AppService appService = mock(AppService.class);
         AppTaskService appTaskService = mock(AppTaskService.class);
         AppTaskLogPublisher appTaskLogPublisher = mock(AppTaskLogPublisher.class);
+        AppTaskMetrics appTaskMetrics = mock(AppTaskMetrics.class);
         App app = App.builder()
                 .id(1L)
                 .userId(10L)
@@ -128,7 +130,12 @@ class AppIterationServiceImplTest {
             task.setId(20L);
             return true;
         }).when(appTaskService).save(any(AppTask.class));
-        AppIterationServiceImpl service = new AppIterationServiceImpl(appService, appTaskService, appTaskLogPublisher);
+        AppIterationServiceImpl service = new AppIterationServiceImpl(
+                appService,
+                appTaskService,
+                appTaskLogPublisher,
+                appTaskMetrics
+        );
         return new Fixture(service, appService, appTaskService, appTaskLogPublisher, app);
     }
 

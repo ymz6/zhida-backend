@@ -9,8 +9,12 @@ import org.mockito.ArgumentCaptor;
 import org.ymz.app.config.AppDeploymentProperties;
 import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.model.entity.App;
+import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppDeployStatus;
 import org.ymz.app.model.enums.app.AppStatus;
+import org.ymz.app.model.enums.app.AppTaskStatus;
+import org.ymz.app.model.enums.app.AppTaskType;
+import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppCoverCaptureService;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
@@ -76,6 +80,23 @@ class AppDeploymentServiceImplTest {
                 deployedAtCaptor.capture()
         );
         assertEquals(response.getDeployedAt(), deployedAtCaptor.getValue());
+
+        ArgumentCaptor<AppTask> savedTaskCaptor = ArgumentCaptor.forClass(AppTask.class);
+        verify(fixture.appTaskService).save(savedTaskCaptor.capture());
+        AppTask savedTask = savedTaskCaptor.getValue();
+        assertEquals(AppTaskType.DEPLOY.name(), savedTask.getTaskType());
+        assertEquals(AppTaskStatus.RUNNING.name(), savedTask.getStatus());
+        assertEquals("部署应用", savedTask.getPrompt());
+
+        ArgumentCaptor<AppTask> updatedTaskCaptor = ArgumentCaptor.forClass(AppTask.class);
+        verify(fixture.appTaskService).updateById(updatedTaskCaptor.capture());
+        AppTask taskUpdate = updatedTaskCaptor.getValue();
+        assertEquals(30L, taskUpdate.getId());
+        assertEquals(AppTaskStatus.SUCCESS.name(), taskUpdate.getStatus());
+        assertEquals("应用部署成功", taskUpdate.getResultSummary());
+        verify(fixture.appTaskMetrics).recordCreated(AppTaskType.DEPLOY);
+        verify(fixture.appTaskMetrics).recordStarted(savedTask);
+        verify(fixture.appTaskMetrics).recordCompleted(eq(savedTask), eq(AppTaskStatus.SUCCESS), any(LocalDateTime.class));
     }
 
     @Test
@@ -165,6 +186,13 @@ class AppDeploymentServiceImplTest {
         assertEquals(null, failureUpdate.getErrorMessage());
         verify(fixture.filePublisher, never()).publish(any(Path.class), anyString());
         verify(fixture.appCoverCaptureService, never()).captureCoverAsync(any(Long.class), anyString(), any(LocalDateTime.class));
+
+        ArgumentCaptor<AppTask> updatedTaskCaptor = ArgumentCaptor.forClass(AppTask.class);
+        verify(fixture.appTaskService).updateById(updatedTaskCaptor.capture());
+        AppTask taskUpdate = updatedTaskCaptor.getValue();
+        assertEquals(AppTaskStatus.FAILED.name(), taskUpdate.getStatus());
+        assertTrue(taskUpdate.getErrorMessage().contains("构建产物不存在"));
+        verify(fixture.appTaskMetrics).recordCompleted(any(AppTask.class), eq(AppTaskStatus.FAILED), any(LocalDateTime.class));
     }
 
     @Test
@@ -182,6 +210,7 @@ class AppDeploymentServiceImplTest {
         AppTaskService appTaskService = mock(AppTaskService.class);
         AppDeploymentFilePublisher filePublisher = mock(AppDeploymentFilePublisher.class);
         AppCoverCaptureService appCoverCaptureService = mock(AppCoverCaptureService.class);
+        AppTaskMetrics appTaskMetrics = mock(AppTaskMetrics.class);
         @SuppressWarnings("unchecked")
         UpdateChain<App> updateChain = mock(UpdateChain.class, RETURNS_SELF);
         AppDeploymentProperties properties = new AppDeploymentProperties();
@@ -193,6 +222,11 @@ class AppDeploymentServiceImplTest {
         when(appService.updateChain()).thenReturn(updateChain);
         when(updateChain.set(any(QueryColumn.class), any())).thenReturn(updateChain);
         when(updateChain.update()).thenReturn(true);
+        when(appTaskService.save(any(AppTask.class))).thenAnswer(invocation -> {
+            AppTask task = invocation.getArgument(0);
+            task.setId(30L);
+            return true;
+        });
         try {
             when(filePublisher.publish(any(Path.class), anyString()))
                     .thenAnswer(invocation -> tempDir.resolve("deployments").resolve((String) invocation.getArgument(1)));
@@ -205,9 +239,18 @@ class AppDeploymentServiceImplTest {
                 appTaskService,
                 filePublisher,
                 properties,
-                appCoverCaptureService
+                appCoverCaptureService,
+                appTaskMetrics
         );
-        return new Fixture(service, appService, appTaskService, filePublisher, appCoverCaptureService, updateChain);
+        return new Fixture(
+                service,
+                appService,
+                appTaskService,
+                filePublisher,
+                appCoverCaptureService,
+                appTaskMetrics,
+                updateChain
+        );
     }
 
     private App app(String deployKey, AppStatus status, Path workspacePath) {
@@ -234,6 +277,7 @@ class AppDeploymentServiceImplTest {
             AppTaskService appTaskService,
             AppDeploymentFilePublisher filePublisher,
             AppCoverCaptureService appCoverCaptureService,
+            AppTaskMetrics appTaskMetrics,
             UpdateChain<App> updateChain
     ) {
     }

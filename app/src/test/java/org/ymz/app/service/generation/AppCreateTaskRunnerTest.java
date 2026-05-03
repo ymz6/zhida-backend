@@ -8,6 +8,7 @@ import org.ymz.app.ai.agent.CodeGenerationAgent;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppStatus;
+import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
 
@@ -146,6 +147,7 @@ class AppCreateTaskRunnerTest {
         ProjectWorkspaceManager projectWorkspaceManager = mock(ProjectWorkspaceManager.class);
         CodeGenerationAgent codeGenerationAgent = mock(CodeGenerationAgent.class);
         ProjectCommandRunner projectCommandRunner = mock(ProjectCommandRunner.class);
+        AppTaskMetrics appTaskMetrics = mock(AppTaskMetrics.class);
         App app = App.builder()
                 .id(1L)
                 .name("测试应用")
@@ -168,7 +170,8 @@ class AppCreateTaskRunnerTest {
                 appTaskSseBroker,
                 projectWorkspaceManager,
                 codeGenerationAgent,
-                projectCommandRunner
+                projectCommandRunner,
+                appTaskMetrics
         );
 
         return new Fixture(
@@ -180,6 +183,7 @@ class AppCreateTaskRunnerTest {
                 projectWorkspaceManager,
                 codeGenerationAgent,
                 projectCommandRunner,
+                appTaskMetrics,
                 app,
                 task
         );
@@ -214,6 +218,7 @@ class AppCreateTaskRunnerTest {
             ProjectWorkspaceManager projectWorkspaceManager,
             CodeGenerationAgent codeGenerationAgent,
             ProjectCommandRunner projectCommandRunner,
+            AppTaskMetrics appTaskMetrics,
             App app,
             AppTask task
     ) {
