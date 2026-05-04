@@ -63,6 +63,42 @@ create index idx_status
 create index idx_user_id
     on app (user_id);
 
+-- 应用案例表
+create table app_case
+(
+    id                  bigint auto_increment comment '主键 ID'
+        primary key,
+    app_id              bigint                                not null comment '应用 ID',
+    user_id             bigint                                not null comment '投稿用户 ID',
+    title               varchar(128)                          not null comment '案例标题',
+    summary             varchar(512)                          not null comment '案例简介',
+    status              varchar(32) default 'PENDING'         not null comment '状态：PENDING-待审核，APPROVED-已公开，REJECTED-已驳回，OFFLINE-已下架',
+    featured            tinyint(1)  default 0                 not null comment '是否精选',
+    snapshot_app_name   varchar(128)                          null comment '审核通过时的应用名称快照',
+    snapshot_deploy_url varchar(512)                          null comment '审核通过时的应用访问地址快照',
+    snapshot_cover_url  varchar(512)                          null comment '审核通过时的应用封面地址快照',
+    reviewer_id         bigint                                null comment '审核管理员 ID',
+    review_remark       varchar(512) default ''               not null comment '审核备注',
+    reviewed_at         datetime                              null comment '最近审核时间',
+    created_at          datetime    default CURRENT_TIMESTAMP not null comment '创建时间',
+    updated_at          datetime    default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    constraint uk_app_case_app_id
+        unique (app_id)
+)
+    comment '应用案例表' collate = utf8mb4_unicode_ci;
+
+create index idx_app_case_public
+    on app_case (status, featured, reviewed_at, id);
+
+create index idx_app_case_user_created
+    on app_case (user_id, created_at);
+
+create index idx_app_case_status
+    on app_case (status);
+
+create index idx_app_case_featured
+    on app_case (featured);
+
 -- 应用任务表
 create table app_task
 (
