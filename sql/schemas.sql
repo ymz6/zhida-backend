@@ -40,6 +40,9 @@ create table app
     deployed_at    datetime                              null comment '最近一次部署完成时间',
     deploy_error_message text                             null comment '最近一次部署失败时的错误信息',
     latest_task_id bigint                                null comment '最近一次执行的应用任务 ID',
+    context_summary_json json                            null comment '当前应用的结构化上下文摘要 JSON',
+    context_summary_task_id bigint                       null comment '最近一次更新摘要的任务 ID',
+    context_summary_updated_at datetime                  null comment '最近一次更新摘要的时间',
     error_message  text                                  null comment '应用最近一次失败时的错误信息',
     created_at     datetime    default CURRENT_TIMESTAMP not null comment '创建时间'
 )
@@ -147,7 +150,7 @@ create table app_chat_message
     app_id       bigint                                not null comment '应用 ID',
     task_id      bigint                                null comment '任务 ID，可为空，普通历史消息可以不绑定具体任务',
     role         varchar(32)                           not null comment '消息角色：USER-用户，ASSISTANT-AI 助手，TOOL-工具，SYSTEM-系统',
-    message_type varchar(32) default 'CHAT'            not null comment '消息类型：CHAT-普通对话，PLAN-执行计划，TOOL_CALL-工具调用，TOOL_RESULT-工具结果，BUILD_LOG-构建日志，ERROR-错误信息',
+    message_type varchar(32) default 'CHAT'            not null comment '消息类型：CHAT-普通对话，BUILD_LOG-构建日志，ERROR-错误信息',
     content      mediumtext                            not null comment '消息内容',
     metadata     text                                  null comment '消息附加信息，JSON 字符串格式，例如工具名称、文件路径、构建状态等',
     created_at   datetime    default CURRENT_TIMESTAMP not null comment '创建时间'
@@ -239,3 +242,26 @@ create index idx_llm_status
 
 create index idx_llm_task_id
     on llm_call_log (task_id);
+
+-- 应用任务运行事件表
+create table app_task_event
+(
+    id         bigint auto_increment comment '主键 ID'
+        primary key,
+    app_id     bigint      not null comment '应用 ID',
+    task_id    bigint      not null comment '任务 ID',
+    event_type varchar(64) not null comment '事件类型',
+    content    text        null comment '事件内容',
+    metadata   json        null comment '事件元数据',
+    created_at datetime    not null comment '创建时间'
+)
+    comment '应用任务运行事件表' collate = utf8mb4_unicode_ci;
+
+create index idx_app_task_event_app_id
+    on app_task_event (app_id);
+
+create index idx_app_task_event_created_at
+    on app_task_event (created_at);
+
+create index idx_app_task_event_task_id
+    on app_task_event (task_id);

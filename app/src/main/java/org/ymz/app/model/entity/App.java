@@ -104,6 +104,21 @@ public class App implements Serializable {
     private Long latestTaskId;
 
     /**
+     * 当前应用的结构化上下文摘要 JSON。
+     */
+    private String contextSummaryJson;
+
+    /**
+     * 最近一次更新摘要的任务 ID。
+     */
+    private Long contextSummaryTaskId;
+
+    /**
+     * 最近一次更新摘要的时间。
+     */
+    private LocalDateTime contextSummaryUpdatedAt;
+
+    /**
      * 应用最近一次失败时的错误信息
      */
     private String errorMessage;

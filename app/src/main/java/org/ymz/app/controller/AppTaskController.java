@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,6 +12,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.ymz.app.model.dto.app.AppTaskInfo;
+import org.ymz.app.model.dto.page.CursorResult;
+import org.ymz.app.model.dto.task.AppTaskEventInfo;
+import org.ymz.app.model.dto.task.ListTaskEventsRequest;
 import org.ymz.app.model.dto.task.TaskStatusResponse;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
@@ -39,6 +43,16 @@ public class AppTaskController {
     public Response<AppTaskInfo> getTask(@PathVariable Long taskId) {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(appQueryService.getTask(authContext.getUserId(), taskId));
+    }
+
+    @GetMapping("/{taskId}/events")
+    @Operation(operationId = "listTaskEvents")
+    public Response<CursorResult<AppTaskEventInfo>> listTaskEvents(
+            @PathVariable Long taskId,
+            @Validated ListTaskEventsRequest request
+    ) {
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appQueryService.listTaskEvents(authContext.getUserId(), taskId, request));
     }
 
     @GetMapping(value = "/{taskId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

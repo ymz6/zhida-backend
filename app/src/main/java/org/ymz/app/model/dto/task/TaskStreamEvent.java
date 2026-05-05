@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.ymz.app.model.entity.AppChatMessage;
+import org.ymz.app.model.entity.AppTaskEvent;
 import org.ymz.app.model.entity.AppTask;
 
 import java.time.LocalDateTime;
@@ -32,6 +33,8 @@ public class TaskStreamEvent {
 
     private Long messageId;
 
+    private Long taskEventId;
+
     private String role;
 
     private String messageType;
@@ -53,6 +56,30 @@ public class TaskStreamEvent {
                 .content(message.getContent())
                 .metadata(message.getMetadata())
                 .createdAt(message.getCreatedAt())
+                .build();
+    }
+
+    public static TaskStreamEvent assistantDelta(Long appId, Long taskId, String content) {
+        return TaskStreamEvent.builder()
+                .eventType("assistant.delta")
+                .appId(appId)
+                .taskId(taskId)
+                .role("ASSISTANT")
+                .messageType("CHAT")
+                .content(content)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    public static TaskStreamEvent taskEvent(AppTaskEvent event) {
+        return TaskStreamEvent.builder()
+                .eventType(event.getEventType())
+                .appId(event.getAppId())
+                .taskId(event.getTaskId())
+                .taskEventId(event.getId())
+                .content(event.getContent())
+                .metadata(event.getMetadata())
+                .createdAt(event.getCreatedAt())
                 .build();
     }
 

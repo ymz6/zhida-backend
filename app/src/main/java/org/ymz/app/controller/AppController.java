@@ -27,9 +27,7 @@ import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
 import org.ymz.app.security.LoginRequired;
-import org.ymz.app.service.AppCreationService;
-import org.ymz.app.service.AppDeploymentService;
-import org.ymz.app.service.AppIterationService;
+import org.ymz.app.service.AppOperationService;
 import org.ymz.app.service.AppQueryService;
 import org.ymz.app.web.response.Response;
 
@@ -45,9 +43,7 @@ import org.ymz.app.web.response.Response;
 @RequestMapping("/apps")
 public class AppController {
 
-    private final AppCreationService appCreationService;
-    private final AppIterationService appIterationService;
-    private final AppDeploymentService appDeploymentService;
+    private final AppOperationService appOperationService;
     private final AppQueryService appQueryService;
 
     @GetMapping("/mine")
@@ -68,7 +64,7 @@ public class AppController {
     @Operation(operationId = "createApp")
     public Response<CreateAppTaskResponse> createApp(@RequestBody @Valid CreateAppRequest request) {
         AuthContext authContext = AuthContextHolder.get();
-        return Response.ok(appCreationService.createApp(authContext.getUserId(), request));
+        return Response.ok(appOperationService.createApp(authContext.getUserId(), request));
     }
 
     @PostMapping("/{appId}/iterations")
@@ -78,7 +74,7 @@ public class AppController {
             @RequestBody @Valid CreateAppIterationRequest request
     ) {
         AuthContext authContext = AuthContextHolder.get();
-        return Response.ok(appIterationService.createAppIteration(authContext.getUserId(), appId, request));
+        return Response.ok(appOperationService.createAppIteration(authContext.getUserId(), appId, request));
     }
 
     @GetMapping("/{appId}/tasks")
@@ -105,6 +101,6 @@ public class AppController {
     @Operation(operationId = "deployApp")
     public Response<DeployAppResponse> deployApp(@PathVariable Long appId) {
         AuthContext authContext = AuthContextHolder.get();
-        return Response.ok(appDeploymentService.deployApp(authContext.getUserId(), appId));
+        return Response.ok(appOperationService.deployApp(authContext.getUserId(), appId));
     }
 }

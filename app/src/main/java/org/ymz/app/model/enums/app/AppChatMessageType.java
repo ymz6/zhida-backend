@@ -12,10 +12,7 @@ import lombok.Getter;
 public enum AppChatMessageType {
 
     CHAT("普通聊天消息"),
-    PLAN("AI 执行计划"),
-    TOOL_CALL("工具调用"),
-    TOOL_RESULT("工具调用结果"),
-    BUILD_LOG("构建日志"),
+    BUILD_LOG("命令输出流事件"),
     ERROR("错误信息");
 
     private final String description;

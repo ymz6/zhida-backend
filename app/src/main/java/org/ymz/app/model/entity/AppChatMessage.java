@@ -50,7 +50,7 @@ public class AppChatMessage implements Serializable {
     private String role;
 
     /**
-     * 消息类型：CHAT-普通对话，PLAN-执行计划，TOOL_CALL-工具调用，TOOL_RESULT-工具结果，BUILD_LOG-构建日志，ERROR-错误信息
+     * 消息类型：CHAT-普通对话，BUILD_LOG-构建日志，ERROR-错误信息
      */
     private String messageType;
 

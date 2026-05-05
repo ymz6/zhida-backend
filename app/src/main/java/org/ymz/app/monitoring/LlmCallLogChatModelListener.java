@@ -78,6 +78,9 @@ public class LlmCallLogChatModelListener implements ChatModelListener {
     ) {
         try {
             String modelName = StrUtil.blankToDefault(responseModelName, requestModelName(chatRequest));
+            if (shouldSkip(modelName, attributes)) {
+                return;
+            }
             LlmCallLog log = LlmCallLog.builder()
                     .scenario(resolveScenario(attributes, modelName))
                     .modelName(modelName)
@@ -95,6 +98,14 @@ public class LlmCallLogChatModelListener implements ChatModelListener {
         } catch (Exception e) {
             log.warn("记录 LLM 调用明细失败", e);
         }
+    }
+
+    private boolean shouldSkip(String modelName, Map<Object, Object> attributes) {
+        if (!"deepseek-v4-pro".equals(modelName)) {
+            return false;
+        }
+        Object scenario = attributes.get(LlmMonitoringAttributes.SCENARIO);
+        return scenario == null || StrUtil.isBlank(String.valueOf(scenario));
     }
 
     private String requestModelName(ChatRequest chatRequest) {

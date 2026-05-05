@@ -40,6 +40,7 @@ src/main/java/org/ymz/app/
 ├── ai/                      # AI 模块
 ├── controller/              # 控制器层
 ├── converter/               # MapStruct 转换器
+├── deployment/              # 应用部署与封面生成能力
 ├── mapper/                  # 数据库访问层
 ├── model/                   # 数据模型层
 │   ├── dto/                 # 数据传输对象

@@ -3,6 +3,7 @@ package org.ymz.app.oss;
 import cn.hutool.core.util.StrUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.ymz.app.model.enums.oss.BucketType;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
