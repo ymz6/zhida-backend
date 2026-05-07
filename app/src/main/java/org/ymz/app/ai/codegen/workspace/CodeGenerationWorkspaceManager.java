@@ -2,7 +2,7 @@ package org.ymz.app.ai.codegen.workspace;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.ymz.app.config.AppGenerationProperties;
+import org.ymz.app.config.AppDevConfig;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -19,15 +19,15 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class CodeGenerationWorkspaceManager {
 
-    private final AppGenerationProperties properties;
+    private final AppDevConfig appDevConfig;
 
     public Path initializeWorkspace(Long appId) throws IOException {
-        Path templatePath = Path.of(properties.getTemplatePath()).toAbsolutePath().normalize();
+        Path templatePath = Path.of(appDevConfig.getGenerationTemplatePath()).toAbsolutePath().normalize();
         if (!Files.isDirectory(templatePath)) {
             throw new IllegalStateException("项目模板不存在：" + templatePath);
         }
 
-        Path workspaceRoot = Path.of(properties.getWorkspaceRoot()).toAbsolutePath().normalize();
+        Path workspaceRoot = Path.of(appDevConfig.getGenerationWorkspaceRoot()).toAbsolutePath().normalize();
         Files.createDirectories(workspaceRoot);
         Path workspacePath = workspaceRoot.resolve(String.valueOf(appId)).normalize();
         ensureInside(workspaceRoot, workspacePath);
@@ -42,14 +42,14 @@ public class CodeGenerationWorkspaceManager {
             throw new IllegalStateException("构建产物不存在，请检查 dist/index.html");
         }
 
-        Path previewRoot = Path.of(properties.getPreviewRoot()).toAbsolutePath().normalize();
+        Path previewRoot = Path.of(appDevConfig.getGenerationPreviewRoot()).toAbsolutePath().normalize();
         Files.createDirectories(previewRoot);
         Path previewPath = previewRoot.resolve(String.valueOf(appId)).normalize();
         ensureInside(previewRoot, previewPath);
         deleteIfExists(previewPath);
         copyDirectory(distPath, previewPath);
 
-        String prefix = properties.getPreviewUrlPrefix();
+        String prefix = appDevConfig.getGenerationPreviewUrlPrefix();
         if (!prefix.startsWith("/")) {
             prefix = "/" + prefix;
         }

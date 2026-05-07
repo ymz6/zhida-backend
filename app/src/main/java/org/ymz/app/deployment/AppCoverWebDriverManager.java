@@ -8,7 +8,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.stereotype.Component;
-import org.ymz.app.config.AppDeploymentProperties;
+import org.ymz.app.config.AppDevConfig;
 
 /**
  * 管理应用封面截图使用的单例浏览器实例。
@@ -20,7 +20,7 @@ import org.ymz.app.config.AppDeploymentProperties;
 @RequiredArgsConstructor
 public class AppCoverWebDriverManager {
 
-    private final AppDeploymentProperties appDeploymentProperties;
+    private final AppDevConfig appDevConfig;
 
     private WebDriver webDriver;
 
@@ -42,7 +42,6 @@ public class AppCoverWebDriverManager {
     }
 
     WebDriver createWebDriver() {
-        AppDeploymentProperties.Cover cover = appDeploymentProperties.getCover();
         WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");
@@ -50,7 +49,7 @@ public class AppCoverWebDriverManager {
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
         options.addArguments("--hide-scrollbars");
-        options.addArguments("--window-size=" + cover.getViewportWidth() + "," + cover.getViewportHeight());
+        options.addArguments("--window-size=" + appDevConfig.getCoverViewportWidth() + "," + appDevConfig.getCoverViewportHeight());
         return new ChromeDriver(options);
     }
 

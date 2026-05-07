@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
-import org.ymz.app.config.AppDeploymentProperties;
+import org.ymz.app.config.AppDevConfig;
 import org.ymz.app.deployment.AppCoverCaptureService;
 import org.ymz.app.deployment.AppDeploymentFileService;
 import org.ymz.app.model.dto.app.CreateAppIterationRequest;
@@ -141,7 +141,7 @@ class AppOperationIterationTest {
                 appTaskService,
                 appTaskLogPublisher,
                 mock(AppDeploymentFileService.class),
-                new AppDeploymentProperties(),
+                new AppDevConfig(),
                 mock(AppCoverCaptureService.class),
                 appTaskMetrics
         );

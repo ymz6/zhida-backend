@@ -8,7 +8,7 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
-import org.ymz.app.config.AppDeploymentProperties;
+import org.ymz.app.config.AppDevConfig;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.enums.oss.BucketType;
 import org.ymz.app.oss.RustFSClient;
@@ -180,9 +180,21 @@ class AppCoverCaptureServiceTest {
         WebDriver.Timeouts timeouts = mock(WebDriver.Timeouts.class);
         WebDriver.Navigation navigation = mock(WebDriver.Navigation.class);
 
-        AppDeploymentProperties properties = new AppDeploymentProperties();
-        properties.getCover().setSettleDelayMillis(0);
-        properties.getCover().setPageLoadTimeoutSeconds(1);
+        AppDevConfig appDevConfig = new AppDevConfig(
+                "project-template/zhida-react-project",
+                "tmp/app-workspaces",
+                "tmp/app-previews",
+                "/previews",
+                "nginx/html/apps",
+                "http://localhost/apps",
+                1440,
+                900,
+                1,
+                0,
+                0.8f,
+                "app-covers/",
+                "http://localhost:9090"
+        );
 
         when(appService.getById(1L)).thenReturn(App.builder()
                 .id(1L)
@@ -206,7 +218,7 @@ class AppCoverCaptureServiceTest {
         AppCoverCaptureService service = new AppCoverCaptureService(
                 appService,
                 rustFSClient,
-                properties,
+                appDevConfig,
                 webDriverManager,
                 Runnable::run
         );

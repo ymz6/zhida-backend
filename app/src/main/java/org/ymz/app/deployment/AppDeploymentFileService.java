@@ -2,7 +2,7 @@ package org.ymz.app.deployment;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.ymz.app.config.AppDeploymentProperties;
+import org.ymz.app.config.AppDevConfig;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,14 +21,14 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class AppDeploymentFileService {
 
-    private final AppDeploymentProperties properties;
+    private final AppDevConfig appDevConfig;
 
     public Path deployDist(Path distPath, String deployKey) throws IOException {
         if (deployKey == null || !deployKey.matches("[A-Za-z0-9_-]+")) {
             throw new IllegalStateException("部署标识不合法");
         }
 
-        Path deployRoot = Path.of(properties.getDeployRoot()).toAbsolutePath().normalize();
+        Path deployRoot = Path.of(appDevConfig.getDeploymentRoot()).toAbsolutePath().normalize();
         Files.createDirectories(deployRoot);
 
         Path targetPath = deployRoot.resolve(deployKey).normalize();

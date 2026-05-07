@@ -8,7 +8,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.ymz.app.ai.codegen.event.CodeGenerationMessageRecorder;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
-import org.ymz.app.config.AppDeploymentProperties;
+import org.ymz.app.config.AppDevConfig;
 import org.ymz.app.deployment.AppCoverCaptureService;
 import org.ymz.app.deployment.AppDeploymentFileService;
 import org.ymz.app.model.dto.app.DeployAppResponse;
@@ -216,9 +216,21 @@ class AppOperationDeploymentTest {
         AppTaskMetrics appTaskMetrics = mock(AppTaskMetrics.class);
         @SuppressWarnings("unchecked")
         UpdateChain<App> updateChain = mock(UpdateChain.class, RETURNS_SELF);
-        AppDeploymentProperties properties = new AppDeploymentProperties();
-        properties.setDeployRoot(tempDir.resolve("deployments").toString());
-        properties.setDeployUrlPrefix("http://localhost/apps");
+        AppDevConfig appDevConfig = new AppDevConfig(
+                "project-template/zhida-react-project",
+                "tmp/app-workspaces",
+                "tmp/app-previews",
+                "/previews",
+                tempDir.resolve("deployments").toString(),
+                "http://localhost/apps",
+                1440,
+                900,
+                30,
+                2000,
+                0.8f,
+                "app-covers/",
+                "http://localhost:9090"
+        );
 
         when(appService.getById(1L)).thenReturn(app);
         when(appTaskService.count(any(QueryWrapper.class))).thenReturn(0L);
@@ -243,7 +255,7 @@ class AppOperationDeploymentTest {
                 appTaskService,
                 mock(CodeGenerationMessageRecorder.class),
                 filePublisher,
-                properties,
+                appDevConfig,
                 appCoverCaptureService,
                 appTaskMetrics
         );

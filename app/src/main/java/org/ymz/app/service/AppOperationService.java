@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.ymz.app.ai.codegen.event.CodeGenerationMessageRecorder;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
 import org.ymz.app.ai.title.TitleGenerateResult;
-import org.ymz.app.config.AppDeploymentProperties;
+import org.ymz.app.config.AppDevConfig;
 import org.ymz.app.deployment.AppCoverCaptureService;
 import org.ymz.app.deployment.AppDeploymentFileService;
 import org.ymz.app.model.dto.app.CreateAppIterationRequest;
@@ -56,7 +56,7 @@ public class AppOperationService {
     private final AppTaskService appTaskService;
     private final CodeGenerationMessageRecorder messageRecorder;
     private final AppDeploymentFileService appDeploymentFileService;
-    private final AppDeploymentProperties appDeploymentProperties;
+    private final AppDevConfig appDevConfig;
     private final AppCoverCaptureService appCoverCaptureService;
     private final AppTaskMetrics appTaskMetrics;
 
@@ -327,7 +327,7 @@ public class AppOperationService {
     }
 
     private String buildDeployUrl(String deployKey) {
-        String prefix = StrUtil.blankToDefault(appDeploymentProperties.getDeployUrlPrefix(), "http://localhost/apps");
+        String prefix = StrUtil.blankToDefault(appDevConfig.getDeploymentUrlPrefix(), "http://localhost/apps");
         while (prefix.endsWith("/")) {
             prefix = prefix.substring(0, prefix.length() - 1);
         }

@@ -19,7 +19,7 @@ import java.nio.file.Path;
 @RequiredArgsConstructor
 public class WebMvcAuthConfig implements WebMvcConfigurer {
     private final AuthInterceptor authInterceptor;
-    private final AppGenerationProperties appGenerationProperties;
+    private final AppDevConfig appDevConfig;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -29,14 +29,14 @@ public class WebMvcAuthConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String previewPattern = appGenerationProperties.getPreviewUrlPrefix();
+        String previewPattern = appDevConfig.getGenerationPreviewUrlPrefix();
         if (!previewPattern.startsWith("/")) {
             previewPattern = "/" + previewPattern;
         }
         if (!previewPattern.endsWith("/")) {
             previewPattern = previewPattern + "/";
         }
-        String previewLocation = Path.of(appGenerationProperties.getPreviewRoot())
+        String previewLocation = Path.of(appDevConfig.getGenerationPreviewRoot())
                 .toAbsolutePath()
                 .normalize()
                 .toUri()
@@ -50,7 +50,7 @@ public class WebMvcAuthConfig implements WebMvcConfigurer {
 
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
-        String previewPattern = appGenerationProperties.getPreviewUrlPrefix();
+        String previewPattern = appDevConfig.getGenerationPreviewUrlPrefix();
         if (!previewPattern.startsWith("/")) {
             previewPattern = "/" + previewPattern;
         }

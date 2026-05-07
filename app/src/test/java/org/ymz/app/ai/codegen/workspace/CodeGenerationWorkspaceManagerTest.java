@@ -2,7 +2,7 @@ package org.ymz.app.ai.codegen.workspace;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.ymz.app.config.AppGenerationProperties;
+import org.ymz.app.config.AppDevConfig;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,10 +21,22 @@ class CodeGenerationWorkspaceManagerTest {
         Files.createDirectories(workspacePath.resolve("dist/assets"));
         Files.writeString(workspacePath.resolve("dist/index.html"), "<html></html>");
         Files.writeString(workspacePath.resolve("dist/assets/app.js"), "console.log('ok')");
-        AppGenerationProperties properties = new AppGenerationProperties();
-        properties.setPreviewRoot(tempDir.resolve("previews").toString());
-        properties.setPreviewUrlPrefix("/previews");
-        CodeGenerationWorkspaceManager manager = new CodeGenerationWorkspaceManager(properties);
+        AppDevConfig appDevConfig = new AppDevConfig(
+                "project-template/zhida-react-project",
+                "tmp/app-workspaces",
+                tempDir.resolve("previews").toString(),
+                "/previews",
+                "nginx/html/apps",
+                "http://localhost/apps",
+                1440,
+                900,
+                30,
+                2000,
+                0.8f,
+                "app-covers/",
+                "http://localhost:9090"
+        );
+        CodeGenerationWorkspaceManager manager = new CodeGenerationWorkspaceManager(appDevConfig);
 
         String previewUrl = manager.refreshPreview(9L, workspacePath);
 

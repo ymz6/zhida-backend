@@ -2,7 +2,7 @@ package org.ymz.app.deployment;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.ymz.app.config.AppDeploymentProperties;
+import org.ymz.app.config.AppDevConfig;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -61,8 +61,21 @@ class AppDeploymentFileServiceTest {
     }
 
     private AppDeploymentFileService publisher() {
-        AppDeploymentProperties properties = new AppDeploymentProperties();
-        properties.setDeployRoot(tempDir.resolve("deployments").toString());
-        return new AppDeploymentFileService(properties);
+        AppDevConfig appDevConfig = new AppDevConfig(
+                "project-template/zhida-react-project",
+                "tmp/app-workspaces",
+                "tmp/app-previews",
+                "/previews",
+                tempDir.resolve("deployments").toString(),
+                "http://localhost/apps",
+                1440,
+                900,
+                30,
+                2000,
+                0.8f,
+                "app-covers/",
+                "http://localhost:9090"
+        );
+        return new AppDeploymentFileService(appDevConfig);
     }
 }

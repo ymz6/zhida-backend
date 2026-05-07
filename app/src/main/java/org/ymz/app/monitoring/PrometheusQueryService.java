@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-import org.ymz.app.config.MonitoringProperties;
+import org.ymz.app.config.AppDevConfig;
 import org.ymz.app.model.dto.monitoring.MonitoringPoint;
 import org.ymz.app.model.dto.monitoring.MonitoringSeries;
 
@@ -28,8 +28,8 @@ public class PrometheusQueryService {
     private final ZoneId zoneId;
 
     @Autowired
-    public PrometheusQueryService(MonitoringProperties properties, RestClient.Builder restClientBuilder) {
-        this(restClientBuilder.baseUrl(properties.getPrometheus().getBaseUrl()).build(), ZoneId.systemDefault());
+    public PrometheusQueryService(AppDevConfig appDevConfig, RestClient.Builder restClientBuilder) {
+        this(restClientBuilder.baseUrl(appDevConfig.getPrometheusBaseUrl()).build(), ZoneId.systemDefault());
     }
 
     PrometheusQueryService(RestClient restClient, ZoneId zoneId) {

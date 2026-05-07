@@ -50,23 +50,3 @@ oss:
   secret-key: Y5Oa1HvSyRJz8sZ7jcMACQTbtfNhgemFK0VwWnxi
   public-bucket: zhida-public
   private-bucket: zhida-private
-app:
-  generation:
-    template-path: project-template/zhida-react-project
-    workspace-root: tmp/app-workspaces
-    preview-root: tmp/app-previews
-    preview-url-prefix: /previews
-  deployment:
-    deploy-root: nginx/html/apps
-    deploy-url-prefix: http://localhost/apps
-    cover:
-      enabled: true
-      viewport-width: 1440
-      viewport-height: 900
-      page-load-timeout-seconds: 30
-      settle-delay-millis: 2000
-      quality: 0.8
-      oss-prefix: app-covers/
-  monitoring:
-    prometheus:
-      base-url: http://localhost:9090

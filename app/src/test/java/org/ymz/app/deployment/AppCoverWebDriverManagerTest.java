@@ -2,7 +2,7 @@ package org.ymz.app.deployment;
 
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.WebDriver;
-import org.ymz.app.config.AppDeploymentProperties;
+import org.ymz.app.config.AppDevConfig;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -56,7 +56,7 @@ class AppCoverWebDriverManagerTest {
         private int createCount;
 
         TestAppCoverWebDriverManager(WebDriver... drivers) {
-            super(new AppDeploymentProperties());
+            super(new AppDevConfig());
             this.drivers = drivers;
         }
 

@@ -11,7 +11,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import org.ymz.app.config.AppDeploymentProperties;
+import org.ymz.app.config.AppDevConfig;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.enums.oss.BucketType;
 import org.ymz.app.oss.RustFSClient;
@@ -40,7 +40,7 @@ public class AppCoverCaptureService {
 
     private final AppService appService;
     private final RustFSClient rustFSClient;
-    private final AppDeploymentProperties appDeploymentProperties;
+    private final AppDevConfig appDevConfig;
     private final AppCoverWebDriverManager appCoverWebDriverManager;
     private final Executor appCoverExecutor;
     private final ReentrantLock captureLock = new ReentrantLock();
@@ -48,20 +48,18 @@ public class AppCoverCaptureService {
     public AppCoverCaptureService(
             AppService appService,
             RustFSClient rustFSClient,
-            AppDeploymentProperties appDeploymentProperties,
+            AppDevConfig appDevConfig,
             AppCoverWebDriverManager appCoverWebDriverManager,
             @Qualifier("appCoverExecutor") Executor appCoverExecutor
     ) {
         this.appService = appService;
         this.rustFSClient = rustFSClient;
-        this.appDeploymentProperties = appDeploymentProperties;
+        this.appDevConfig = appDevConfig;
         this.appCoverWebDriverManager = appCoverWebDriverManager;
         this.appCoverExecutor = appCoverExecutor;
     }
+
     public void captureCoverAsync(Long appId, String deployUrl, LocalDateTime deployedAt) {
-        if (!appDeploymentProperties.getCover().isEnabled()) {
-            return;
-        }
         appCoverExecutor.execute(() -> {
             captureLock.lock();
             try {
@@ -80,9 +78,8 @@ public class AppCoverCaptureService {
 
         String coverKey = null;
         try {
-            AppDeploymentProperties.Cover cover = appDeploymentProperties.getCover();
-            byte[] coverBytes = captureCoverBytes(deployUrl, cover);
-            coverKey = buildCoverKey(appId, cover.getOssPrefix());
+            byte[] coverBytes = captureCoverBytes(deployUrl);
+            coverKey = buildCoverKey(appId);
             try (ByteArrayInputStream inputStream = new ByteArrayInputStream(coverBytes)) {
                 rustFSClient.uploadObject(BucketType.PUBLIC, inputStream, coverKey, COVER_CONTENT_TYPE, coverBytes.length);
             }
@@ -94,13 +91,13 @@ public class AppCoverCaptureService {
         }
     }
 
-    private byte[] captureCoverBytes(String deployUrl, AppDeploymentProperties.Cover cover) throws Exception {
+    private byte[] captureCoverBytes(String deployUrl) throws Exception {
         Path rawScreenshotPath = null;
         Path compressedCoverPath = null;
         try {
             WebDriver driver = appCoverWebDriverManager.getDriver();
-            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(cover.getPageLoadTimeoutSeconds()));
-            loadCleanPage(driver, deployUrl, cover);
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(appDevConfig.getCoverPageLoadTimeoutSeconds()));
+            loadCleanPage(driver, deployUrl);
 
             if (!(driver instanceof TakesScreenshot takesScreenshot)) {
                 throw new IllegalStateException("当前浏览器不支持截图");
@@ -109,7 +106,7 @@ public class AppCoverCaptureService {
             rawScreenshotPath = Files.createTempFile("app-cover-", ".png");
             compressedCoverPath = Files.createTempFile("app-cover-", ".jpg");
             Files.write(rawScreenshotPath, screenshotBytes);
-            ImgUtil.compress(rawScreenshotPath.toFile(), compressedCoverPath.toFile(), cover.getQuality());
+            ImgUtil.compress(rawScreenshotPath.toFile(), compressedCoverPath.toFile(), appDevConfig.getCoverQuality());
             return Files.readAllBytes(compressedCoverPath);
         } finally {
             deleteTempFile(rawScreenshotPath);
@@ -117,18 +114,18 @@ public class AppCoverCaptureService {
         }
     }
 
-    private void loadCleanPage(WebDriver driver, String deployUrl, AppDeploymentProperties.Cover cover) {
+    private void loadCleanPage(WebDriver driver, String deployUrl) {
         driver.manage().deleteAllCookies();
         driver.get(deployUrl);
         clearBrowserStorage(driver);
         driver.navigate().refresh();
-        waitPageReady(driver, cover);
+        waitPageReady(driver);
         ((JavascriptExecutor) driver).executeScript("""
                 window.scrollTo(0, 0);
                 document.documentElement.style.overflow = 'hidden';
                 document.body.style.overflow = 'hidden';
                 """);
-        sleepForRendering(cover.getSettleDelayMillis());
+        sleepForRendering(appDevConfig.getCoverSettleDelayMillis());
     }
 
     private void clearBrowserStorage(WebDriver driver) {
@@ -138,8 +135,8 @@ public class AppCoverCaptureService {
                 """);
     }
 
-    private void waitPageReady(WebDriver driver, AppDeploymentProperties.Cover cover) {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(cover.getPageLoadTimeoutSeconds()));
+    private void waitPageReady(WebDriver driver) {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(appDevConfig.getCoverPageLoadTimeoutSeconds()));
         wait.until(webDriver -> "complete".equals(((JavascriptExecutor) webDriver)
                 .executeScript("return document.readyState")));
     }
@@ -181,8 +178,8 @@ public class AppCoverCaptureService {
         }
     }
 
-    private String buildCoverKey(Long appId, String ossPrefix) {
-        String prefix = StrUtil.blankToDefault(ossPrefix, "app-covers/");
+    private String buildCoverKey(Long appId) {
+        String prefix = StrUtil.blankToDefault(appDevConfig.getCoverOssPrefix(), "app-covers/");
         while (prefix.startsWith("/")) {
             prefix = prefix.substring(1);
         }
