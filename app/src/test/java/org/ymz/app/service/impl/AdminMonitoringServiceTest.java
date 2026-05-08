@@ -73,8 +73,8 @@ class AdminMonitoringServiceTest {
 
                 MonitoringTableResult table = result.getTables().getFirst();
                 assertEquals("TASK_STAT", table.getResource());
-                assertEquals(3, table.getTotal());
-                assertEquals(3, table.getRecords().size());
+                assertEquals(4, table.getTotal());
+                assertEquals(4, table.getRecords().size());
         }
 
         @Test

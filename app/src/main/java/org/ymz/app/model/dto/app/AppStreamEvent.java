@@ -1,17 +1,17 @@
-package org.ymz.app.model.dto.task;
+package org.ymz.app.model.dto.app;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.ymz.app.model.entity.AppChatMessage;
-import org.ymz.app.model.entity.AppTaskEvent;
 import org.ymz.app.model.entity.AppTask;
+import org.ymz.app.model.entity.AppTaskEvent;
 
 import java.time.LocalDateTime;
 
 /**
- * 任务事件流推送数据。
+ * 应用对话流推送数据。
  *
  * @author ymz
  */
@@ -19,13 +19,11 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TaskStreamEvent {
+public class AppStreamEvent {
 
     private String eventType;
 
     private Long appId;
-
-    private Long taskId;
 
     private String status;
 
@@ -45,11 +43,10 @@ public class TaskStreamEvent {
 
     private LocalDateTime createdAt;
 
-    public static TaskStreamEvent message(AppChatMessage message) {
-        return TaskStreamEvent.builder()
+    public static AppStreamEvent message(AppChatMessage message) {
+        return AppStreamEvent.builder()
                 .eventType("message")
                 .appId(message.getAppId())
-                .taskId(message.getTaskId())
                 .messageId(message.getId())
                 .role(message.getRole())
                 .messageType(message.getMessageType())
@@ -59,11 +56,10 @@ public class TaskStreamEvent {
                 .build();
     }
 
-    public static TaskStreamEvent assistantDelta(Long appId, Long taskId, String content) {
-        return TaskStreamEvent.builder()
+    public static AppStreamEvent assistantDelta(Long appId, String content) {
+        return AppStreamEvent.builder()
                 .eventType("assistant.delta")
                 .appId(appId)
-                .taskId(taskId)
                 .role("ASSISTANT")
                 .messageType("CHAT")
                 .content(content)
@@ -71,11 +67,10 @@ public class TaskStreamEvent {
                 .build();
     }
 
-    public static TaskStreamEvent taskEvent(AppTaskEvent event) {
-        return TaskStreamEvent.builder()
+    public static AppStreamEvent taskEvent(AppTaskEvent event) {
+        return AppStreamEvent.builder()
                 .eventType(event.getEventType())
                 .appId(event.getAppId())
-                .taskId(event.getTaskId())
                 .taskEventId(event.getId())
                 .content(event.getContent())
                 .metadata(event.getMetadata())
@@ -83,11 +78,10 @@ public class TaskStreamEvent {
                 .build();
     }
 
-    public static TaskStreamEvent state(AppTask task) {
-        return TaskStreamEvent.builder()
+    public static AppStreamEvent state(AppTask task) {
+        return AppStreamEvent.builder()
                 .eventType("state")
                 .appId(task.getAppId())
-                .taskId(task.getId())
                 .status(task.getStatus())
                 .currentStep(task.getCurrentStep())
                 .build();

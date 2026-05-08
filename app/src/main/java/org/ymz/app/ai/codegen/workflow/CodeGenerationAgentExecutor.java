@@ -14,6 +14,7 @@ import org.ymz.app.ai.codegen.runtime.CodeGenerationInvocationGuard;
 import org.ymz.app.ai.codegen.memory.CodeGenerationRecoveryContextService;
 import org.ymz.app.model.enums.codegen.CodeGenerationScenario;
 import org.ymz.app.ai.codegen.tool.WorkspaceToolSession;
+import org.ymz.app.ai.codegen.agent.ChatCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.CreateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.IterateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.RepairCodeGenerationAiService;
@@ -40,6 +41,7 @@ public class CodeGenerationAgentExecutor {
     private final CreateCodeGenerationAiService createCodeGenerationAiService;
     private final IterateCodeGenerationAiService iterateCodeGenerationAiService;
     private final RepairCodeGenerationAiService repairCodeGenerationAiService;
+    private final ChatCodeGenerationAiService chatCodeGenerationAiService;
     private final CodeGenerationTaskEventRecorder taskEventRecorder;
     private final CodeGenerationInvocationGuard invocationGuard;
     private final CodeGenerationRecoveryContextService recoveryContextService;
@@ -75,6 +77,16 @@ public class CodeGenerationAgentExecutor {
                 .repairAttempt(repairAttempt)
                 .build());
     }
+    public void chat(App app, AppTask task, Path workspacePath) {
+        run(CodeGenerationContext.builder()
+                .appId(app.getId())
+                .taskId(task.getId())
+                .appName(app.getName())
+                .workspacePath(workspacePath)
+                .scenario(CodeGenerationScenario.CHAT)
+                .taskPrompt(task.getPrompt())
+                .build());
+    }
 
     private void run(CodeGenerationContext context) {
         invocationGuard.withAppLock(context.getAppId(), () -> {
@@ -98,6 +110,7 @@ public class CodeGenerationAgentExecutor {
             case CREATE -> createCodeGenerationAiService.generate(context.memoryId(), context.getTaskPrompt(), parameters);
             case ITERATE -> iterateCodeGenerationAiService.iterate(context.memoryId(), context.getTaskPrompt(), parameters);
             case REPAIR -> repairCodeGenerationAiService.repair(context.memoryId(), context.getTaskPrompt(), parameters);
+            case CHAT -> chatCodeGenerationAiService.chat(context.memoryId(), context.getTaskPrompt(), parameters);
         };
 
         tokenStream

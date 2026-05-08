@@ -11,6 +11,7 @@ import org.ymz.app.ai.codegen.memory.CodeGenerationChatMemoryFactory;
 import org.ymz.app.ai.codegen.memory.AppContextSummaryAssistant;
 import org.ymz.app.ai.codegen.runtime.CodeGenerationPromptContextComposer;
 import org.ymz.app.ai.codegen.tool.WorkspaceToolProviderFactory;
+import org.ymz.app.ai.codegen.agent.ChatCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.CreateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.IterateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.RepairCodeGenerationAiService;
@@ -87,6 +88,24 @@ public class AiServiceFactoryConfig {
     ) {
         return buildCodeGenerationAiService(
                 RepairCodeGenerationAiService.class,
+                codeGenerateModel,
+                memoryFactory,
+                toolProviderFactory,
+                promptContextComposer,
+                observability
+        );
+    }
+
+    @Bean
+    ChatCodeGenerationAiService chatCodeGenerationAiService(
+            StreamingChatModel codeGenerateModel,
+            CodeGenerationChatMemoryFactory memoryFactory,
+            WorkspaceToolProviderFactory toolProviderFactory,
+            CodeGenerationPromptContextComposer promptContextComposer,
+            CodeGenerationAiServiceObservability observability
+    ) {
+        return buildCodeGenerationAiService(
+                ChatCodeGenerationAiService.class,
                 codeGenerateModel,
                 memoryFactory,
                 toolProviderFactory,

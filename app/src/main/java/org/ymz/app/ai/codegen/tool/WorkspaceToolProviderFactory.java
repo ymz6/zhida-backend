@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.ymz.app.ai.codegen.runtime.CodeGenerationContext;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationProjectVerifier;
+import org.ymz.app.model.enums.codegen.CodeGenerationScenario;
 
 import java.util.List;
 
@@ -37,7 +38,9 @@ public class WorkspaceToolProviderFactory {
                         context.getAppId(),
                         context.getTaskId());
                 request.invocationParameters().put("workspaceToolSession", session);
-                WorkspaceTools tools = new WorkspaceTools(session);
+                Object tools = context.getScenario() == CodeGenerationScenario.CHAT
+                        ? new WorkspaceReadOnlyTools(session)
+                        : new WorkspaceTools(session);
                 List<AiServiceTool> aiServiceTools = ToolService.findTools(tools);
                 ToolProviderResult.Builder builder = ToolProviderResult.builder();
                 for (AiServiceTool aiServiceTool : aiServiceTools) {

@@ -663,7 +663,6 @@ public class AdminMonitoringService {
         private long running;
         private long success;
         private long failed;
-        private long canceled;
         private long durationTotal;
         private long durationCount;
 
@@ -681,8 +680,6 @@ public class AdminMonitoringService {
                 success++;
             } else if (AppTaskStatus.FAILED.name().equals(task.getStatus())) {
                 failed++;
-            } else if (AppTaskStatus.CANCELED.name().equals(task.getStatus())) {
-                canceled++;
             }
 
             Long duration = taskDurationMillis(task);
@@ -700,7 +697,6 @@ public class AdminMonitoringService {
                     .running(running)
                     .success(success)
                     .failed(failed)
-                    .canceled(canceled)
                     .successRate(rate(success, total))
                     .failedRate(rate(failed, total))
                     .averageDurationMillis(Math.round(average(durationTotal, durationCount)))

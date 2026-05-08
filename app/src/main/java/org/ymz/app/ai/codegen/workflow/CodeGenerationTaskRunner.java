@@ -64,6 +64,10 @@ public class CodeGenerationTaskRunner {
             taskSseBroker.complete(taskId);
             return;
         }
+        if (AppTaskType.CHAT.name().equals(task.getTaskType())) {
+            runChat(app, task);
+            return;
+        }
 
         String previousPreviewUrl = app.getPreviewUrl();
         try {
@@ -222,6 +226,33 @@ public class CodeGenerationTaskRunner {
         } catch (IllegalArgumentException | NullPointerException ignored) {
         }
         throw new IllegalStateException("当前任务类型暂不支持执行：" + task.getTaskType());
+    }
+
+    private void runChat(App app, AppTask task) {
+        try {
+            Path workspacePath = StrUtil.isBlank(app.getWorkspacePath()) ? null : workspacePath(app);
+            agentExecutor.chat(app, task, workspacePath);
+            LocalDateTime finishedAt = LocalDateTime.now();
+            updateTask(task.getId(), AppTaskStatus.SUCCESS, AppTaskStep.FINISHED, "对话完成", null, finishedAt);
+            appTaskMetrics.recordCompleted(task, AppTaskStatus.SUCCESS, finishedAt);
+            taskEventRecorder.publishStageChanged(appTaskService.getById(task.getId()));
+        } catch (Exception e) {
+            log.error("Chat task failed, taskId={}", task.getId(), e);
+            String message = StrUtil.blankToDefault(e.getMessage(), "对话失败");
+            LocalDateTime finishedAt = LocalDateTime.now();
+            updateTask(task.getId(), AppTaskStatus.FAILED, AppTaskStep.FINISHED, null, message, finishedAt);
+            appTaskMetrics.recordCompleted(task, AppTaskStatus.FAILED, finishedAt);
+            taskEventRecorder.publishStageChanged(appTaskService.getById(task.getId()));
+            messageRecorder.appendMessage(
+                    task.getAppId(),
+                    task.getId(),
+                    AppChatMessageRole.SYSTEM,
+                    AppChatMessageType.ERROR,
+                    message
+            );
+        } finally {
+            taskSseBroker.complete(task.getId());
+        }
     }
 
     private void failTask(AppTask task, App app, String previousPreviewUrl, String errorMessage) {

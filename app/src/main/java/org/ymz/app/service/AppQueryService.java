@@ -13,19 +13,13 @@ import org.ymz.app.model.dto.app.AppAuthor;
 import org.ymz.app.model.dto.app.AppChatMessageInfo;
 import org.ymz.app.model.dto.app.AppDetail;
 import org.ymz.app.model.dto.app.AppSummary;
-import org.ymz.app.model.dto.app.AppTaskInfo;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
-import org.ymz.app.model.dto.app.ListAppTasksRequest;
 import org.ymz.app.model.dto.app.ListMyAppsRequest;
 import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.dto.page.SortablePageQuery;
-import org.ymz.app.model.dto.task.AppTaskEventInfo;
-import org.ymz.app.model.dto.task.ListTaskEventsRequest;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
-import org.ymz.app.model.entity.AppTaskEvent;
-import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.entity.User;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
@@ -36,8 +30,6 @@ import java.util.List;
 
 import static org.ymz.app.model.entity.table.AppChatMessageTableDef.APP_CHAT_MESSAGE;
 import static org.ymz.app.model.entity.table.AppTableDef.APP;
-import static org.ymz.app.model.entity.table.AppTaskEventTableDef.APP_TASK_EVENT;
-import static org.ymz.app.model.entity.table.AppTaskTableDef.APP_TASK;
 import static org.ymz.app.model.enums.app.AppChatMessageRole.ASSISTANT;
 import static org.ymz.app.model.enums.app.AppChatMessageRole.SYSTEM;
 import static org.ymz.app.model.enums.app.AppChatMessageRole.USER;
@@ -54,8 +46,6 @@ import static org.ymz.app.model.enums.app.AppChatMessageType.ERROR;
 public class AppQueryService {
 
     private final AppService appService;
-    private final AppTaskService appTaskService;
-    private final AppTaskEventService appTaskEventService;
     private final AppChatMessageService appChatMessageService;
     private final UserService userService;
     private final AppConverter appConverter;
@@ -96,33 +86,11 @@ public class AppQueryService {
         return detail;
     }
 
-    public PageResult<AppTaskInfo> listAppTasks(Long userId, Long appId, ListAppTasksRequest request) {
-        getOwnedApp(userId, appId);
-
-        QueryWrapper query = QueryWrapper.create()
-                .select(APP_TASK.ALL_COLUMNS)
-                .from(APP_TASK)
-                .where(APP_TASK.APP_ID.eq(appId))
-                .and(APP_TASK.USER_ID.eq(userId))
-                .orderBy(APP_TASK.CREATED_AT.desc())
-                .orderBy(APP_TASK.ID.desc());
-
-        Page<AppTask> page = appTaskService.page(request.toPage(), query);
-        return PageResult.of(page, appConverter::toAppTaskInfo);
-    }
-
     public CursorResult<AppChatMessageInfo> listAppMessages(
             Long userId,
             Long appId,
             ListAppMessagesRequest request) {
         getOwnedApp(userId, appId);
-        Long taskId = request.getTaskId();
-        if (taskId != null) {
-            AppTask task = getOwnedTask(userId, taskId);
-            if (!appId.equals(task.getAppId())) {
-                throw BusinessException.of(ResultCode.NOT_FOUND, "任务不存在");
-            }
-        }
 
         QueryWrapper query = QueryWrapper.create()
                 .select(APP_CHAT_MESSAGE.ALL_COLUMNS)
@@ -130,7 +98,6 @@ public class AppQueryService {
                 .where(APP_CHAT_MESSAGE.APP_ID.eq(appId))
                 .and(APP_CHAT_MESSAGE.ROLE.in(visibleRoles()))
                 .and(APP_CHAT_MESSAGE.MESSAGE_TYPE.in(visibleMessageTypes()))
-                .and(APP_CHAT_MESSAGE.TASK_ID.eq(taskId, If::notNull))
                 .and(APP_CHAT_MESSAGE.ID.lt(request.getBefore(), If::notNull))
                 .orderBy(APP_CHAT_MESSAGE.ID.desc())
                 .limit(request.getLimit() + 1);
@@ -149,36 +116,6 @@ public class AppQueryService {
         return CursorResult.of(list, nextCursor, hasMore);
     }
 
-    public CursorResult<AppTaskEventInfo> listTaskEvents(Long userId, Long taskId, ListTaskEventsRequest request) {
-        AppTask task = getOwnedTask(userId, taskId);
-
-        QueryWrapper query = QueryWrapper.create()
-                .select(APP_TASK_EVENT.ALL_COLUMNS)
-                .from(APP_TASK_EVENT)
-                .where(APP_TASK_EVENT.TASK_ID.eq(taskId))
-                .and(APP_TASK_EVENT.APP_ID.eq(task.getAppId()))
-                .and(APP_TASK_EVENT.ID.lt(request.getBefore(), If::notNull))
-                .orderBy(APP_TASK_EVENT.ID.desc())
-                .limit(request.getLimit() + 1);
-
-        List<AppTaskEvent> events = appTaskEventService.list(query);
-        boolean hasMore = events.size() > request.getLimit();
-        if (hasMore) {
-            events = events.subList(0, request.getLimit());
-        }
-
-        List<AppTaskEventInfo> list = new ArrayList<>(events.size());
-        for (int i = events.size() - 1; i >= 0; i--) {
-            list.add(appConverter.toAppTaskEventInfo(events.get(i)));
-        }
-        Long nextCursor = hasMore && !list.isEmpty() ? list.getFirst().getId() : null;
-        return CursorResult.of(list, nextCursor, hasMore);
-    }
-
-    public AppTaskInfo getTask(Long userId, Long taskId) {
-        return appConverter.toAppTaskInfo(getOwnedTask(userId, taskId));
-    }
-
     private App getOwnedApp(Long userId, Long appId) {
         App app = appService.getById(appId);
         if (app == null) {
@@ -188,17 +125,6 @@ public class AppQueryService {
             throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
         return app;
-    }
-
-    private AppTask getOwnedTask(Long userId, Long taskId) {
-        AppTask task = appTaskService.getById(taskId);
-        if (task == null) {
-            throw BusinessException.of(ResultCode.NOT_FOUND, "任务不存在");
-        }
-        if (!userId.equals(task.getUserId())) {
-            throw BusinessException.of(ResultCode.NO_PERMISSION);
-        }
-        return task;
     }
 
     private AppAuthor toAppAuthor(User user) {

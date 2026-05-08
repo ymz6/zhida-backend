@@ -12,8 +12,6 @@ import lombok.Data;
 @Data
 public class ListAppMessagesRequest {
 
-    private Long taskId;
-
     @Min(value = 1, message = "非法查询数量")
     @Max(value = 100, message = "非法查询数量")
     private int limit = 50;

@@ -10,7 +10,7 @@ import dev.langchain4j.service.tool.ToolExecution;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.ymz.app.ai.codegen.runtime.CodeGenerationContext;
-import org.ymz.app.model.dto.task.TaskStreamEvent;
+import org.ymz.app.model.dto.app.AppStreamEvent;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.entity.AppTaskEvent;
@@ -47,7 +47,7 @@ public class CodeGenerationTaskEventRecorder {
         taskSseBroker.publish(
                 context.getTaskId(),
                 AppTaskEventType.ASSISTANT_COMPLETED.getCode().replace(".completed", ".delta"),
-                TaskStreamEvent.assistantDelta(context.getAppId(), context.getTaskId(), delta)
+                AppStreamEvent.assistantDelta(context.getAppId(), delta)
         );
     }
     public AppChatMessage appendAssistantMessage(CodeGenerationContext context, String content) {
@@ -61,7 +61,7 @@ public class CodeGenerationTaskEventRecorder {
         taskSseBroker.publish(
                 context.getTaskId(),
                 AppTaskEventType.ASSISTANT_COMPLETED.getCode(),
-                TaskStreamEvent.message(message)
+                AppStreamEvent.message(message)
         );
         return message;
     }
@@ -218,7 +218,7 @@ public class CodeGenerationTaskEventRecorder {
                 .createdAt(LocalDateTime.now())
                 .build();
         appTaskEventService.save(event);
-        taskSseBroker.publish(taskId, eventType.getCode(), TaskStreamEvent.taskEvent(event));
+        taskSseBroker.publish(taskId, eventType.getCode(), AppStreamEvent.taskEvent(event));
     }
 
     private String summarizeToolCall(ToolExecutionRequest request) {

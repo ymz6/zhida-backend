@@ -12,8 +12,8 @@ import lombok.Getter;
 public enum AppTaskStep {
 
     INITIALIZING_WORKSPACE("正在初始化工作区"),
-    ANALYZING("正在分析需求"),
     GENERATING_CODE("正在生成代码"),
+    CHATTING("正在对话"),
     BUILDING("正在构建应用"),
     DEPLOYING("正在部署应用"),
     FINISHED("已完成");

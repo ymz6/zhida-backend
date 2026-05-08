@@ -45,7 +45,7 @@ public class AppTask implements Serializable {
     private Long userId;
 
     /**
-     * 任务类型：CREATE-创建应用，ITERATE-迭代应用，REPAIR-修复应用，DEPLOY-部署应用
+     * 任务类型：CREATE-创建应用，ITERATE-迭代应用，CHAT-对话答疑，DEPLOY-部署应用
      */
     private String taskType;
 
@@ -55,12 +55,12 @@ public class AppTask implements Serializable {
     private String prompt;
 
     /**
-     * 任务状态：PENDING-待执行，RUNNING-执行中，SUCCESS-执行成功，FAILED-执行失败，CANCELED-已取消
+     * 任务状态：PENDING-待执行，RUNNING-执行中，SUCCESS-执行成功，FAILED-执行失败
      */
     private String status;
 
     /**
-     * 当前执行步骤：INITIALIZING_WORKSPACE-初始化工作区，ANALYZING-需求分析，GENERATING_CODE-生成代码，BUILDING-构建应用，DEPLOYING-部署应用，FINISHED-已完成
+     * 当前执行步骤：INITIALIZING_WORKSPACE-初始化工作区，GENERATING_CODE-生成代码，CHATTING-对话中，BUILDING-构建应用，DEPLOYING-部署应用，FINISHED-已完成
      */
     private String currentStep;
 

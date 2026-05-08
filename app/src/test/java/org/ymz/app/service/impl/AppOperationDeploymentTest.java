@@ -6,7 +6,6 @@ import com.mybatisflex.core.update.UpdateChain;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
-import org.ymz.app.ai.codegen.event.CodeGenerationMessageRecorder;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
 import org.ymz.app.config.AppDevConfig;
 import org.ymz.app.deployment.AppCoverCaptureService;
@@ -253,7 +252,6 @@ class AppOperationDeploymentTest {
                 mock(TitleGenerateAssistant.class),
                 appService,
                 appTaskService,
-                mock(CodeGenerationMessageRecorder.class),
                 filePublisher,
                 appDevConfig,
                 appCoverCaptureService,

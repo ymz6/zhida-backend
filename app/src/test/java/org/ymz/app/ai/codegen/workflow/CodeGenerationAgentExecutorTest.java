@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InOrder;
 import org.ymz.app.ai.codegen.runtime.CodeGenerationInvocationGuard;
 import org.ymz.app.ai.codegen.memory.CodeGenerationRecoveryContextService;
+import org.ymz.app.ai.codegen.agent.ChatCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.CreateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.IterateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.RepairCodeGenerationAiService;
@@ -106,12 +107,14 @@ class CodeGenerationAgentExecutorTest {
         CreateCodeGenerationAiService createService = mock(CreateCodeGenerationAiService.class);
         IterateCodeGenerationAiService iterateService = mock(IterateCodeGenerationAiService.class);
         RepairCodeGenerationAiService repairService = mock(RepairCodeGenerationAiService.class);
+        ChatCodeGenerationAiService chatService = mock(ChatCodeGenerationAiService.class);
         when(createService.generate(any(), any(), any())).thenReturn(tokenStream);
         CodeGenerationRecoveryContextService recovery = mock(CodeGenerationRecoveryContextService.class);
         return new CodeGenerationAgentExecutor(
                 createService,
                 iterateService,
                 repairService,
+                chatService,
                 publisher,
                 new CodeGenerationInvocationGuard(),
                 recovery);

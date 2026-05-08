@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,22 +12,22 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.ymz.app.model.dto.app.AppChatMessageInfo;
 import org.ymz.app.model.dto.app.AppDetail;
 import org.ymz.app.model.dto.app.AppSummary;
-import org.ymz.app.model.dto.app.AppTaskInfo;
-import org.ymz.app.model.dto.app.CreateAppIterationRequest;
+import org.ymz.app.model.dto.app.ChatRequest;
 import org.ymz.app.model.dto.app.CreateAppRequest;
-import org.ymz.app.model.dto.app.CreateAppTaskResponse;
+import org.ymz.app.model.dto.app.CreateAppResponse;
 import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
-import org.ymz.app.model.dto.app.ListAppTasksRequest;
 import org.ymz.app.model.dto.app.ListMyAppsRequest;
 import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
 import org.ymz.app.security.LoginRequired;
+import org.ymz.app.service.AppChatService;
 import org.ymz.app.service.AppOperationService;
 import org.ymz.app.service.AppQueryService;
 import org.ymz.app.web.response.Response;
@@ -45,6 +46,7 @@ public class AppController {
 
     private final AppOperationService appOperationService;
     private final AppQueryService appQueryService;
+    private final AppChatService appChatService;
 
     @GetMapping("/mine")
     @Operation(operationId = "listMyApps")
@@ -62,29 +64,16 @@ public class AppController {
 
     @PostMapping
     @Operation(operationId = "createApp")
-    public Response<CreateAppTaskResponse> createApp(@RequestBody @Valid CreateAppRequest request) {
+    public Response<CreateAppResponse> createApp(@RequestBody @Valid CreateAppRequest request) {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(appOperationService.createApp(authContext.getUserId(), request));
     }
 
-    @PostMapping("/{appId}/iterations")
-    @Operation(operationId = "createAppIteration")
-    public Response<CreateAppTaskResponse> createAppIteration(
-            @PathVariable Long appId,
-            @RequestBody @Valid CreateAppIterationRequest request
-    ) {
+    @PostMapping(value = "/{appId}/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(operationId = "chatWithApp")
+    public SseEmitter chatWithApp(@PathVariable Long appId, @RequestBody @Valid ChatRequest request) {
         AuthContext authContext = AuthContextHolder.get();
-        return Response.ok(appOperationService.createAppIteration(authContext.getUserId(), appId, request));
-    }
-
-    @GetMapping("/{appId}/tasks")
-    @Operation(operationId = "listAppTasks")
-    public Response<PageResult<AppTaskInfo>> listAppTasks(
-            @PathVariable Long appId,
-            @Validated ListAppTasksRequest request
-    ) {
-        AuthContext authContext = AuthContextHolder.get();
-        return Response.ok(appQueryService.listAppTasks(authContext.getUserId(), appId, request));
+        return appChatService.chat(authContext.getUserId(), appId, request);
     }
 
     @GetMapping("/{appId}/messages")

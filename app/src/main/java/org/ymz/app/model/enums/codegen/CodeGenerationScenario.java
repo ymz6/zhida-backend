@@ -14,7 +14,8 @@ public enum CodeGenerationScenario {
 
     CREATE("CODE_GENERATION_CREATE"),
     ITERATE("CODE_GENERATION_ITERATE"),
-    REPAIR("CODE_GENERATION_REPAIR");
+    REPAIR("CODE_GENERATION_REPAIR"),
+    CHAT("CODE_GENERATION_CHAT");
 
     private final String monitoringScenario;
 }

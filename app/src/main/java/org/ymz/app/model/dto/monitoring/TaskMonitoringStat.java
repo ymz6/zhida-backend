@@ -28,8 +28,6 @@ public class TaskMonitoringStat {
 
     private long failed;
 
-    private long canceled;
-
     private double successRate;
 
     private double failedRate;

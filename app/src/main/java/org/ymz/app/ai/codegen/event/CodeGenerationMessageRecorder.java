@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.ymz.app.model.dto.task.TaskStreamEvent;
+import org.ymz.app.model.dto.app.AppStreamEvent;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppChatMessageRole;
@@ -64,7 +64,7 @@ public class CodeGenerationMessageRecorder {
                 .createdAt(LocalDateTime.now())
                 .build();
         appChatMessageService.save(message);
-        appTaskSseBroker.publish(taskId, "message", TaskStreamEvent.message(message));
+        appTaskSseBroker.publish(taskId, "message", AppStreamEvent.message(message));
         return message;
     }
 
@@ -88,10 +88,9 @@ public class CodeGenerationMessageRecorder {
             Map<String, Object> metadata,
             String eventName
     ) {
-        TaskStreamEvent event = TaskStreamEvent.builder()
+        AppStreamEvent event = AppStreamEvent.builder()
                 .eventType(eventName)
                 .appId(appId)
-                .taskId(taskId)
                 .role(role.name())
                 .messageType(messageType.name())
                 .content(content == null ? "" : content)
@@ -114,7 +113,7 @@ public class CodeGenerationMessageRecorder {
     }
 
     public void publishState(AppTask task) {
-        appTaskSseBroker.publish(task.getId(), "state", TaskStreamEvent.state(task));
+        appTaskSseBroker.publish(task.getId(), "state", AppStreamEvent.state(task));
     }
 
     private String toJson(Map<String, Object> metadata) {

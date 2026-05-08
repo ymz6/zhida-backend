@@ -7,20 +7,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.ymz.app.ai.codegen.event.CodeGenerationMessageRecorder;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
 import org.ymz.app.ai.title.TitleGenerateResult;
 import org.ymz.app.config.AppDevConfig;
 import org.ymz.app.deployment.AppCoverCaptureService;
 import org.ymz.app.deployment.AppDeploymentFileService;
-import org.ymz.app.model.dto.app.CreateAppIterationRequest;
 import org.ymz.app.model.dto.app.CreateAppRequest;
-import org.ymz.app.model.dto.app.CreateAppTaskResponse;
+import org.ymz.app.model.dto.app.CreateAppResponse;
 import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
-import org.ymz.app.model.enums.app.AppChatMessageRole;
-import org.ymz.app.model.enums.app.AppChatMessageType;
 import org.ymz.app.model.enums.app.AppDeployStatus;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
@@ -34,13 +30,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 import static org.ymz.app.model.entity.table.AppTableDef.APP;
 import static org.ymz.app.model.entity.table.AppTaskTableDef.APP_TASK;
 
 /**
- * 应用创建、迭代和部署业务。
+ * 应用创建与部署业务。
  *
  * @author ymz
  */
@@ -54,15 +49,15 @@ public class AppOperationService {
     private final TitleGenerateAssistant titleGenerateAssistant;
     private final AppService appService;
     private final AppTaskService appTaskService;
-    private final CodeGenerationMessageRecorder messageRecorder;
     private final AppDeploymentFileService appDeploymentFileService;
     private final AppDevConfig appDevConfig;
     private final AppCoverCaptureService appCoverCaptureService;
     private final AppTaskMetrics appTaskMetrics;
 
     @Transactional
-    public CreateAppTaskResponse createApp(Long userId, CreateAppRequest request) {
+    public CreateAppResponse createApp(Long userId, CreateAppRequest request) {
         String prompt = StrUtil.trim(request.getPrompt());
+        // 由标题生成 AI 来对用户提示词进行初步筛选
         TitleGenerateResult titleResult = titleGenerateAssistant.chat(prompt);
         if (titleResult == null || !titleResult.isAccepted() || StrUtil.isBlank(titleResult.getTitle())) {
             String reason = titleResult == null || titleResult.getReason() == null
@@ -71,97 +66,18 @@ public class AppOperationService {
             throw BusinessException.of(ResultCode.INVALID_PARAM, reason);
         }
 
-        LocalDateTime now = LocalDateTime.now();
         App app = App.builder()
                 .userId(userId)
                 .name(titleResult.getTitle())
                 .initPrompt(prompt)
                 .status(AppStatus.CREATING.name())
                 .deployStatus(AppDeployStatus.UNDEPLOYED.name())
-                .createdAt(now)
+                .createdAt(LocalDateTime.now())
                 .build();
         appService.save(app);
 
-        AppTask task = AppTask.builder()
+        return CreateAppResponse.builder()
                 .appId(app.getId())
-                .userId(userId)
-                .taskType(AppTaskType.CREATE.name())
-                .prompt(prompt)
-                .status(AppTaskStatus.PENDING.name())
-                .createdAt(now)
-                .build();
-        appTaskService.save(task);
-        appTaskMetrics.recordCreated(AppTaskType.CREATE);
-
-        app.setLatestTaskId(task.getId());
-        appService.updateById(app);
-
-        messageRecorder.appendMessage(
-                app.getId(),
-                task.getId(),
-                AppChatMessageRole.USER,
-                AppChatMessageType.CHAT,
-                prompt,
-                Map.of(
-                        "title", titleResult.getTitle(),
-                        "reason", titleResult.getReason() == null ? "OK" : titleResult.getReason().name()
-                )
-        );
-
-        return CreateAppTaskResponse.builder()
-                .appId(app.getId())
-                .taskId(task.getId())
-                .name(app.getName())
-                .status(app.getStatus())
-                .build();
-    }
-
-    @Transactional
-    public CreateAppTaskResponse createAppIteration(Long userId, Long appId, CreateAppIterationRequest request) {
-        String prompt = StrUtil.trim(request.getPrompt());
-        App app = appService.getById(appId);
-        if (app == null) {
-            throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");
-        }
-        if (!userId.equals(app.getUserId())) {
-            throw BusinessException.of(ResultCode.NO_PERMISSION);
-        }
-        if (!canIterate(app.getStatus())) {
-            throw BusinessException.of(ResultCode.INVALID_PARAM, "当前应用状态不支持继续迭代");
-        }
-        if (StrUtil.isBlank(app.getWorkspacePath()) || !Files.isDirectory(Path.of(app.getWorkspacePath()))) {
-            throw BusinessException.of(ResultCode.INVALID_PARAM, "应用工作区不存在，无法继续迭代");
-        }
-        if (hasActiveTask(appId)) {
-            throw BusinessException.of(ResultCode.INVALID_PARAM, "当前应用已有任务正在执行");
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        AppTask task = AppTask.builder()
-                .appId(appId)
-                .userId(userId)
-                .taskType(AppTaskType.ITERATE.name())
-                .prompt(prompt)
-                .status(AppTaskStatus.PENDING.name())
-                .createdAt(now)
-                .build();
-        appTaskService.save(task);
-        appTaskMetrics.recordCreated(AppTaskType.ITERATE);
-
-        app.setLatestTaskId(task.getId());
-        appService.updateById(app);
-
-        messageRecorder.appendMessage(
-                appId,
-                task.getId(),
-                AppChatMessageRole.USER,
-                AppChatMessageType.CHAT,
-                prompt
-        );
-
-        return CreateAppTaskResponse.builder()
-                .appId(appId)
-                .taskId(task.getId())
                 .name(app.getName())
                 .status(app.getStatus())
                 .build();
@@ -253,22 +169,6 @@ public class AppOperationService {
             }
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, message);
         }
-    }
-
-    private boolean canIterate(String status) {
-        return AppStatus.READY.name().equals(status) || AppStatus.FAILED.name().equals(status);
-    }
-
-    private boolean hasActiveTask(Long appId) {
-        QueryWrapper query = QueryWrapper.create()
-                .select(APP_TASK.ID)
-                .from(APP_TASK)
-                .where(APP_TASK.APP_ID.eq(appId))
-                .and(APP_TASK.STATUS.in(List.of(
-                        AppTaskStatus.PENDING.name(),
-                        AppTaskStatus.RUNNING.name()
-                )));
-        return appTaskService.count(query) > 0;
     }
 
     private void completeDeployTask(

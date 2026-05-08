@@ -5,6 +5,7 @@ import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.invocation.InvocationParameters;
 import org.springframework.stereotype.Component;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandResult;
+import org.ymz.app.model.enums.codegen.CodeGenerationScenario;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -42,19 +43,33 @@ public class CodeGenerationPromptContextComposer {
         if (context.isRepair()) {
             appendRepairContext(prompt, context.getFailedCommand(), context.getRepairAttempt());
         }
-        prompt.append("""
+        if (context.getScenario() == CodeGenerationScenario.CHAT) {
+            prompt.append("""
 
-                ## 可用工具与编辑策略
-                - 只能调用这些工具：listFiles、readFile、writeFile、replaceInFile、deleteFile、searchFiles、checkProject、finish。
-                - 小范围修改优先使用 replaceInFile，并确保 oldText 是文件中唯一匹配的完整原文片段。
-                - 只有在需要新增文件、覆盖完整文件或大范围重写时，才使用 writeFile。
-                - 禁止调用未列出的工具名；如果工具调用失败，先读取文件重新定位，再选择正确工具继续。
+                    ## 可用工具
+                    - 仅限只读工具：listFiles、readFile、searchFiles。
+                    - 严禁尝试调用 writeFile、replaceInFile、deleteFile、checkProject、finish——它们在本轮不存在。
 
-                ## 过程输出要求
-                - 用中文输出简短、高信息密度的进展说明。
-                - 进展说明要说明当前发现、准备执行的动作或修复方向，不要输出内部思维链。
-                - 关键修改完成后，必须调用 finish 工具总结本轮结果。
-                """);
+                    ## 过程输出要求
+                    - 用中文输出简洁、有条理的回答。
+                    - 涉及现有实现时，先用工具确认事实再回答。
+                    - 不要暴露内部思维链。
+                    """);
+        } else {
+            prompt.append("""
+
+                    ## 可用工具与编辑策略
+                    - 只能调用这些工具：listFiles、readFile、writeFile、replaceInFile、deleteFile、searchFiles、checkProject、finish。
+                    - 小范围修改优先使用 replaceInFile，并确保 oldText 是文件中唯一匹配的完整原文片段。
+                    - 只有在需要新增文件、覆盖完整文件或大范围重写时，才使用 writeFile。
+                    - 禁止调用未列出的工具名；如果工具调用失败，先读取文件重新定位，再选择正确工具继续。
+
+                    ## 过程输出要求
+                    - 用中文输出简短、高信息密度的进展说明。
+                    - 进展说明要说明当前发现、准备执行的动作或修复方向，不要输出内部思维链。
+                    - 关键修改完成后，必须调用 finish 工具总结本轮结果。
+                    """);
+        }
         return prompt.toString();
     }
 
