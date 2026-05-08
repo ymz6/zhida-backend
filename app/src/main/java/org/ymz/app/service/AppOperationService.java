@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandRunner;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
 import org.ymz.app.ai.title.TitleGenerateResult;
 import org.ymz.app.config.AppDevConfig;
@@ -53,6 +54,7 @@ public class AppOperationService {
     private final AppDevConfig appDevConfig;
     private final AppCoverCaptureService appCoverCaptureService;
     private final AppTaskMetrics appTaskMetrics;
+    private final CodeGenerationCommandRunner commandRunner;
 
     @Transactional
     public CreateAppResponse createApp(Long userId, CreateAppRequest request) {
@@ -117,7 +119,7 @@ public class AppOperationService {
                 .taskType(AppTaskType.DEPLOY.name())
                 .prompt("部署应用")
                 .status(AppTaskStatus.RUNNING.name())
-                .currentStep(AppTaskStep.DEPLOYING.name())
+                .currentStep(AppTaskStep.BUILDING.name())
                 .createdAt(startedAt)
                 .startedAt(startedAt)
                 .build();
@@ -130,7 +132,21 @@ public class AppOperationService {
                 .build());
 
         try {
-            Path distPath = resolveDistPath(app);
+            Path workspacePath = resolveWorkspacePath(app);
+            // 部署前重新执行正式构建，覆盖预览构建产物中的 JSX 插桩信息。
+            commandRunner.runPnpmCommand(
+                    appId,
+                    deployTask.getId(),
+                    workspacePath,
+                    CodeGenerationCommandRunner.LogMode.SUMMARY,
+                    "build"
+            );
+            appTaskService.updateById(AppTask.builder()
+                    .id(deployTask.getId())
+                    .status(AppTaskStatus.RUNNING.name())
+                    .currentStep(AppTaskStep.DEPLOYING.name())
+                    .build());
+            Path distPath = resolveDistPath(workspacePath);
             String deployKey = StrUtil.isBlank(app.getDeployKey()) ? generateUniqueDeployKey() : app.getDeployKey();
             Path deployPath = appDeploymentFileService.deployDist(distPath, deployKey);
             String deployUrl = buildDeployUrl(deployKey);
@@ -197,7 +213,7 @@ public class AppOperationService {
         }
     }
 
-    private Path resolveDistPath(App app) {
+    private Path resolveWorkspacePath(App app) {
         if (StrUtil.isBlank(app.getWorkspacePath())) {
             throw new IllegalStateException("应用工作区不存在，无法部署");
         }
@@ -205,6 +221,10 @@ public class AppOperationService {
         if (!Files.isDirectory(workspacePath)) {
             throw new IllegalStateException("应用工作区不存在，无法部署：" + workspacePath);
         }
+        return workspacePath;
+    }
+
+    private Path resolveDistPath(Path workspacePath) {
         Path distPath = workspacePath.resolve("dist").normalize();
         if (!Files.isDirectory(distPath) || !Files.isRegularFile(distPath.resolve("index.html"))) {
             throw new IllegalStateException("构建产物不存在，请检查 dist/index.html");

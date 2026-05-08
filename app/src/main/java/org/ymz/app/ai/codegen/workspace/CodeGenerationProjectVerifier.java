@@ -28,12 +28,13 @@ public class CodeGenerationProjectVerifier {
             return lintResult;
         }
 
+        // 生成预览需要保留 JSX 插桩元数据，正式部署会单独执行 pnpm build。
         CodeGenerationCommandResult buildResult = commandRunner.runPnpmCommandResult(
                 appId,
                 taskId,
                 workspacePath,
                 CodeGenerationCommandRunner.LogMode.SUMMARY,
-                "build"
+                "build:preview"
         );
         if (!buildResult.isSuccess()) {
             return buildResult;

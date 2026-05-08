@@ -58,7 +58,7 @@ public class WorkspaceTools {
         return session.searchFiles(query, directory);
     }
 
-    @Tool("运行固定项目校验：先执行 pnpm lint，通过后执行 pnpm build。无参数。")
+    @Tool("运行固定项目校验：先执行 pnpm lint，通过后执行 pnpm build:preview。无参数。")
     public String checkProject() {
         return session.checkProject();
     }

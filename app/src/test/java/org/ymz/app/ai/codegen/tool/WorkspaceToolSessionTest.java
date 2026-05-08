@@ -166,6 +166,23 @@ class WorkspaceToolSessionTest {
         verify(projectVerifier).verify(1L, 2L, workspacePath);
     }
 
+    @Test
+    void failedPreviewBuildReportsPreviewCommand() {
+        CodeGenerationProjectVerifier projectVerifier = mock(CodeGenerationProjectVerifier.class);
+        when(projectVerifier.verify(1L, 2L, workspacePath)).thenReturn(failed("build:preview"));
+        WorkspaceToolSession session = new WorkspaceToolSession(
+                workspacePath,
+                projectVerifier,
+                1L,
+                2L
+        );
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, session::checkProject);
+
+        assertTrue(error.getMessage().contains("pnpm build:preview 未通过"));
+        verify(projectVerifier).verify(1L, 2L, workspacePath);
+    }
+
     private CodeGenerationCommandResult passed(String command) {
         return CodeGenerationCommandResult.builder()
                 .commandText("pnpm.cmd " + command)

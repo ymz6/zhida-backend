@@ -38,8 +38,8 @@ public class AuthService {
     private final UserConverter userConverter;
     private final AccessTokenBlacklistManager accessTokenBlacklistManager;
 
-    // 2小时
-    private static final long ACCESS_TOKEN_EXPIRE_SECONDS = 2 * 60 * 60L;
+    // 5小时
+    private static final long ACCESS_TOKEN_EXPIRE_SECONDS = 5 * 60 * 60L;
 
     public void register(RegisterRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword())) {

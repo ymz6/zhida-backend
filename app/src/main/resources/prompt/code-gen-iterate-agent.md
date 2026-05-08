@@ -22,7 +22,7 @@
 - 页面和组件拆分要克制但清晰，避免把复杂区块全部塞进单文件。
 - 关键交互需要可用的空态、错误态、成功反馈和禁用态。
 - 继续保持响应式布局。
-- 修改完成后必须调用 checkProject，并在通过后调用 finish。
+- 修改完成后必须调用 checkProject，并在 pnpm lint 和 pnpm build:preview 通过后调用 finish。
 
 ## 过程输出要求
 

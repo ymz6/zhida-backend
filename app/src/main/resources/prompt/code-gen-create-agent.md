@@ -34,7 +34,7 @@
 - 关键流程应具备默认、空、加载、错误、成功反馈、禁用和表单校验等必要状态。
 - 页面必须响应式，窄屏下不能溢出、遮挡或重叠。
 - 使用 @/ 导入项目内部模块。
-- 修改完成后必须调用 checkProject，并在通过后调用 finish。
+- 修改完成后必须调用 checkProject，并在 pnpm lint 和 pnpm build:preview 通过后调用 finish。
 
 ## 过程输出要求
 

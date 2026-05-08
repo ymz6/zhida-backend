@@ -164,7 +164,7 @@ public class CodeGenerationTaskEventRecorder {
                 appId,
                 taskId,
                 AppTaskEventType.AGENT_VALIDATION_STARTED,
-                "开始执行 pnpm lint / pnpm build 校验",
+                "开始执行 pnpm lint / pnpm build:preview 校验",
                 Map.of()
         );
     }

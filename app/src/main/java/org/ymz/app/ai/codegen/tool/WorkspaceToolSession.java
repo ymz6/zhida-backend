@@ -180,12 +180,12 @@ public class WorkspaceToolSession {
         }
 
         projectChecked = true;
-        return "pnpm lint 和 pnpm build 已通过，可以调用 finish。";
+        return "pnpm lint 和 pnpm build:preview 已通过，可以调用 finish。";
     }
 
     public String finish(String summary) {
         if (!projectChecked) {
-            throw new IllegalStateException("最近一次文件修改后尚未通过 checkProject。请先调用 checkProject，并在 lint/build 全部通过后再调用 finish。");
+            throw new IllegalStateException("最近一次文件修改后尚未通过 checkProject。请先调用 checkProject，并在 lint/build:preview 全部通过后再调用 finish。");
         }
         finalSummary = summary;
         return summary;
@@ -198,6 +198,9 @@ public class WorkspaceToolSession {
         }
         if (commandText.contains("lint")) {
             return "pnpm lint";
+        }
+        if (commandText.contains("build:preview")) {
+            return "pnpm build:preview";
         }
         if (commandText.contains("build")) {
             return "pnpm build";

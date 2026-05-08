@@ -15,9 +15,9 @@
 
 ## 修复目标
 
-- 根据失败命令和错误日志修复 lint 或 build 问题。
+- 根据失败命令和错误日志修复 lint 或 build:preview 问题。
 - 修复完成后必须重新调用 checkProject。
-- 只有在 lint/build 全部通过后才能调用 finish。
+- 只有在 lint/build:preview 全部通过后才能调用 finish。
 
 ## 过程输出要求
 

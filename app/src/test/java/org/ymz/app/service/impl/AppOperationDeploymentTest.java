@@ -6,6 +6,7 @@ import com.mybatisflex.core.update.UpdateChain;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandRunner;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
 import org.ymz.app.config.AppDevConfig;
 import org.ymz.app.deployment.AppCoverCaptureService;
@@ -16,6 +17,7 @@ import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppDeployStatus;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
+import org.ymz.app.model.enums.app.AppTaskStep;
 import org.ymz.app.model.enums.app.AppTaskType;
 import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppOperationService;
@@ -62,6 +64,13 @@ class AppOperationDeploymentTest {
 
         ArgumentCaptor<String> deployKeyCaptor = ArgumentCaptor.forClass(String.class);
         verify(fixture.filePublisher).deployDist(eq(tempDir.resolve("workspace/dist").toAbsolutePath().normalize()), deployKeyCaptor.capture());
+        verify(fixture.commandRunner).runPnpmCommand(
+                1L,
+                30L,
+                tempDir.resolve("workspace").toAbsolutePath().normalize(),
+                CodeGenerationCommandRunner.LogMode.SUMMARY,
+                "build"
+        );
         String deployKey = deployKeyCaptor.getValue();
         assertTrue(DEPLOY_KEY_PATTERN.matcher(deployKey).matches());
         assertEquals("http://localhost/apps/" + deployKey + "/", response.getDeployUrl());
@@ -88,11 +97,12 @@ class AppOperationDeploymentTest {
         AppTask savedTask = savedTaskCaptor.getValue();
         assertEquals(AppTaskType.DEPLOY.name(), savedTask.getTaskType());
         assertEquals(AppTaskStatus.RUNNING.name(), savedTask.getStatus());
+        assertEquals(AppTaskStep.BUILDING.name(), savedTask.getCurrentStep());
         assertEquals("部署应用", savedTask.getPrompt());
 
         ArgumentCaptor<AppTask> updatedTaskCaptor = ArgumentCaptor.forClass(AppTask.class);
-        verify(fixture.appTaskService).updateById(updatedTaskCaptor.capture());
-        AppTask taskUpdate = updatedTaskCaptor.getValue();
+        verify(fixture.appTaskService, atLeastOnce()).updateById(updatedTaskCaptor.capture());
+        AppTask taskUpdate = updatedTaskCaptor.getAllValues().getLast();
         assertEquals(30L, taskUpdate.getId());
         assertEquals(AppTaskStatus.SUCCESS.name(), taskUpdate.getStatus());
         assertEquals("应用部署成功", taskUpdate.getResultSummary());
@@ -190,11 +200,42 @@ class AppOperationDeploymentTest {
         verify(fixture.appCoverCaptureService, never()).captureCoverAsync(any(Long.class), anyString(), any(LocalDateTime.class));
 
         ArgumentCaptor<AppTask> updatedTaskCaptor = ArgumentCaptor.forClass(AppTask.class);
-        verify(fixture.appTaskService).updateById(updatedTaskCaptor.capture());
-        AppTask taskUpdate = updatedTaskCaptor.getValue();
+        verify(fixture.appTaskService, atLeastOnce()).updateById(updatedTaskCaptor.capture());
+        AppTask taskUpdate = updatedTaskCaptor.getAllValues().getLast();
         assertEquals(AppTaskStatus.FAILED.name(), taskUpdate.getStatus());
         assertTrue(taskUpdate.getErrorMessage().contains("构建产物不存在"));
         verify(fixture.appTaskMetrics).recordCompleted(any(AppTask.class), eq(AppTaskStatus.FAILED), any(LocalDateTime.class));
+    }
+
+    @Test
+    void deployFailureWhenOfficialBuildFails() throws Exception {
+        Path workspacePath = tempDir.resolve("workspace");
+        Files.createDirectories(workspacePath);
+        Fixture fixture = fixture(app(null, AppStatus.READY, workspacePath));
+        doThrow(new IllegalStateException("正式构建失败")).when(fixture.commandRunner)
+                .runPnpmCommand(
+                        1L,
+                        30L,
+                        workspacePath.toAbsolutePath().normalize(),
+                        CodeGenerationCommandRunner.LogMode.SUMMARY,
+                        "build"
+                );
+
+        assertThrows(BusinessException.class, () -> fixture.service.deployApp(10L, 1L));
+
+        ArgumentCaptor<App> appCaptor = ArgumentCaptor.forClass(App.class);
+        verify(fixture.appService, atLeastOnce()).updateById(appCaptor.capture());
+        App failureUpdate = appCaptor.getAllValues().getLast();
+        assertEquals(AppDeployStatus.FAILED.name(), failureUpdate.getDeployStatus());
+        assertTrue(failureUpdate.getDeployErrorMessage().contains("正式构建失败"));
+        verify(fixture.filePublisher, never()).deployDist(any(Path.class), anyString());
+        verify(fixture.appCoverCaptureService, never()).captureCoverAsync(any(Long.class), anyString(), any(LocalDateTime.class));
+
+        ArgumentCaptor<AppTask> updatedTaskCaptor = ArgumentCaptor.forClass(AppTask.class);
+        verify(fixture.appTaskService).updateById(updatedTaskCaptor.capture());
+        AppTask taskUpdate = updatedTaskCaptor.getValue();
+        assertEquals(AppTaskStatus.FAILED.name(), taskUpdate.getStatus());
+        assertTrue(taskUpdate.getErrorMessage().contains("正式构建失败"));
     }
 
     @Test
@@ -213,6 +254,7 @@ class AppOperationDeploymentTest {
         AppDeploymentFileService filePublisher = mock(AppDeploymentFileService.class);
         AppCoverCaptureService appCoverCaptureService = mock(AppCoverCaptureService.class);
         AppTaskMetrics appTaskMetrics = mock(AppTaskMetrics.class);
+        CodeGenerationCommandRunner commandRunner = mock(CodeGenerationCommandRunner.class);
         @SuppressWarnings("unchecked")
         UpdateChain<App> updateChain = mock(UpdateChain.class, RETURNS_SELF);
         AppDevConfig appDevConfig = new AppDevConfig(
@@ -255,7 +297,8 @@ class AppOperationDeploymentTest {
                 filePublisher,
                 appDevConfig,
                 appCoverCaptureService,
-                appTaskMetrics
+                appTaskMetrics,
+                commandRunner
         );
         return new Fixture(
                 service,
@@ -264,6 +307,7 @@ class AppOperationDeploymentTest {
                 filePublisher,
                 appCoverCaptureService,
                 appTaskMetrics,
+                commandRunner,
                 updateChain
         );
     }
@@ -293,6 +337,7 @@ class AppOperationDeploymentTest {
             AppDeploymentFileService filePublisher,
             AppCoverCaptureService appCoverCaptureService,
             AppTaskMetrics appTaskMetrics,
+            CodeGenerationCommandRunner commandRunner,
             UpdateChain<App> updateChain
     ) {
     }
