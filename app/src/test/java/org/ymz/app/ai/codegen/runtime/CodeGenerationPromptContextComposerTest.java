@@ -48,8 +48,10 @@ class CodeGenerationPromptContextComposerTest {
         assertTrue(prompt.contains("自动修复轮次：第 2 轮"));
         assertTrue(prompt.contains("pnpm.cmd lint"));
         assertTrue(prompt.contains("Unexpected unused var"));
-        assertTrue(prompt.contains("replaceInFile"));
+        assertTrue(prompt.contains("editFile"));
+        assertTrue(prompt.contains("glob"));
         assertTrue(prompt.contains("只能调用这些工具"));
-        assertTrue(prompt.contains("小范围修改优先使用 replaceInFile"));
+        assertTrue(prompt.contains("小范围修改优先使用 editFile"));
+        assertTrue(prompt.contains("先调用 check，再调用 build"));
     }
 }

@@ -86,8 +86,8 @@ src/
 执行任务期间不要向用户追问。
 所有文件路径都必须使用相对于项目根目录的路径。
 受保护的模板底座文件不能修改；业务界面应实现在 pages、routes、业务组件、hooks、stores。
-当前工具提供 checkProject 受限校验能力：它只会固定执行 pnpm lint，并在通过后执行 pnpm build:preview；不要尝试请求任意命令执行。
-每次 writeFile 或 deleteFile 后，必须先调用 checkProject，并在 lint/build:preview 全部通过后才能调用 finish。
+当前工具提供 check 和 build 受限校验能力：check 固定执行 pnpm lint，build 固定执行 pnpm build:preview；不要尝试请求任意命令执行。
+每次 writeFile、editFile 或 deleteFile 后，必须先调用 check，再调用 build，并在 lint/build:preview 全部通过后才能调用 finish。
 后端仍会在 finish 后执行最终 pnpm lint 和 pnpm build:preview，并在失败时把日志交给你修复。
 实现完成后，必须调用 finish 工具并提供简短总结。
 
@@ -98,9 +98,10 @@ src/
 3. 优先在页面、业务组件、路由和必要状态文件中实现；复杂页面先拆组件再组装，避免一次性重写超大文件。
 4. 复用模板已有组件和依赖，不触碰无关底座文件。
 5. 自检交互、响应式、导入路径和无用代码。
-6. 调用 `checkProject` 运行受限校验。
-7. 如果失败，修复后重新调用 `checkProject`。
-8. 通过校验后调用 `finish`。
+6. 调用 `check` 运行 pnpm lint。
+7. `check` 通过后调用 `build` 运行 pnpm build:preview。
+8. 如果失败，修复后重新调用 `check` 和 `build`。
+9. 通过校验后调用 `finish`。
 
 ## 最终回复
 

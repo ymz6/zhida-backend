@@ -19,6 +19,38 @@ class CodeGenerationProjectVerifierTest {
     Path workspacePath;
 
     @Test
+    void runLintDelegatesToPnpmLint() {
+        CodeGenerationCommandRunner commandRunner = mock(CodeGenerationCommandRunner.class);
+        CodeGenerationProjectVerifier verifier = new CodeGenerationProjectVerifier(commandRunner);
+        CodeGenerationCommandResult lintResult = result("lint", true);
+        when(commandRunner.runPnpmCommandResult(1L, 2L, workspacePath, CodeGenerationCommandRunner.LogMode.SUMMARY, "lint"))
+                .thenReturn(lintResult);
+
+        assertEquals(lintResult, verifier.runLint(1L, 2L, workspacePath));
+
+        verify(commandRunner).runPnpmCommandResult(1L, 2L, workspacePath, CodeGenerationCommandRunner.LogMode.SUMMARY, "lint");
+    }
+
+    @Test
+    void runBuildDelegatesToPreviewBuild() {
+        CodeGenerationCommandRunner commandRunner = mock(CodeGenerationCommandRunner.class);
+        CodeGenerationProjectVerifier verifier = new CodeGenerationProjectVerifier(commandRunner);
+        CodeGenerationCommandResult buildResult = result("build:preview", true);
+        when(commandRunner.runPnpmCommandResult(1L, 2L, workspacePath, CodeGenerationCommandRunner.LogMode.SUMMARY, "build:preview"))
+                .thenReturn(buildResult);
+
+        assertEquals(buildResult, verifier.runBuild(1L, 2L, workspacePath));
+
+        verify(commandRunner).runPnpmCommandResult(
+                1L,
+                2L,
+                workspacePath,
+                CodeGenerationCommandRunner.LogMode.SUMMARY,
+                "build:preview"
+        );
+    }
+
+    @Test
     void returnsNullWhenLintAndPreviewBuildPass() {
         CodeGenerationCommandRunner commandRunner = mock(CodeGenerationCommandRunner.class);
         CodeGenerationProjectVerifier verifier = new CodeGenerationProjectVerifier(commandRunner);

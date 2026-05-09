@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.ymz.app.ai.codegen.workspace.CodeGenerationWorkspaceRules;
 import org.ymz.app.model.dto.app.content.ContentBlock;
 import org.ymz.app.model.dto.app.content.TextBlock;
 import org.ymz.app.model.dto.app.content.ToolUseBlock;
@@ -38,7 +39,6 @@ import static org.ymz.app.model.enums.app.AppChatMessageRole.USER;
 public class AppContextSummaryManager {
 
     private static final int MAX_RECENT_MESSAGES = 6;
-    private static final int MAX_LIST_ITEMS = 200;
 
     private final AppContextSummaryAssistant assistant;
     private final AppService appService;
@@ -142,10 +142,10 @@ public class AppContextSummaryManager {
         try (var stream = Files.walk(workspacePath, 5)) {
             return stream
                     .filter(path -> !path.equals(workspacePath))
-                    .filter(path -> !isIgnored(workspacePath, path))
-                    .limit(MAX_LIST_ITEMS)
+                    .filter(path -> !CodeGenerationWorkspaceRules.isIgnored(workspacePath, path))
+                    .limit(CodeGenerationWorkspaceRules.MAX_SUMMARY_FILE_LIST_ITEMS)
                     .map(path -> {
-                        String relative = workspacePath.relativize(path).toString().replace('\\', '/');
+                        String relative = CodeGenerationWorkspaceRules.toRelative(workspacePath, path);
                         return Files.isDirectory(path) ? relative + "/" : relative;
                     })
                     .reduce((a, b) -> a + "\n" + b)
@@ -153,16 +153,6 @@ public class AppContextSummaryManager {
         } catch (IOException e) {
             return "无";
         }
-    }
-
-    private boolean isIgnored(Path root, Path path) {
-        String relative = root.relativize(path).toString().replace('\\', '/');
-        return relative.equals("node_modules")
-                || relative.startsWith("node_modules/")
-                || relative.equals("dist")
-                || relative.startsWith("dist/")
-                || relative.equals(".git")
-                || relative.startsWith(".git/");
     }
 
     private AppContextSummaryPayload fallbackSummary(App app, AppTask task, App existing) {

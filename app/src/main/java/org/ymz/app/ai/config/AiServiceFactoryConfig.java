@@ -140,9 +140,9 @@ public class AiServiceFactoryConfig {
                 .toolName(request.name())
                 .text("""
                         工具 "%s" 不存在，不能继续使用该工具名。请改用以下可用工具之一：
-                        listFiles、readFile、writeFile、replaceInFile、deleteFile、searchFiles、checkProject、finish。
+                        readFile、writeFile、editFile、deleteFile、glob、grep、check、build、finish。
 
-                        如果你想做局部文本替换，请先 readFile 获取准确原文片段，再调用 replaceInFile。
+                        如果你想做局部文本替换，请先 readFile 获取准确原文片段，再调用 editFile。
                         """.formatted(request.name()))
                 .isError(true)
                 .build();

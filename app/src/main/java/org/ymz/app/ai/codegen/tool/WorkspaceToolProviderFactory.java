@@ -38,13 +38,25 @@ public class WorkspaceToolProviderFactory {
                         context.getAppId(),
                         context.getTaskId());
                 request.invocationParameters().put("workspaceToolSession", session);
-                Object tools = context.getScenario() == CodeGenerationScenario.CHAT
-                        ? new WorkspaceReadOnlyTools(session)
-                        : new WorkspaceTools(session);
-                List<AiServiceTool> aiServiceTools = ToolService.findTools(tools);
+                List<Object> tools = context.getScenario() == CodeGenerationScenario.CHAT
+                        ? List.of(new FileReadTool(session), new GlobTool(session), new GrepTool(session))
+                        : List.of(
+                        new FileReadTool(session),
+                        new FileWriteTool(session),
+                        new FileEditTool(session),
+                        new FileDeleteTool(session),
+                        new GlobTool(session),
+                        new GrepTool(session),
+                        new CheckTool(session),
+                        new BuildTool(session),
+                        new FinishTool(session)
+                );
                 ToolProviderResult.Builder builder = ToolProviderResult.builder();
-                for (AiServiceTool aiServiceTool : aiServiceTools) {
-                    builder.add(aiServiceTool.toolSpecification(), aiServiceTool.toolExecutor());
+                for (Object tool : tools) {
+                    // 当前 LangChain4j 版本只支持单对象发现工具，这里逐个合并到动态 Provider。
+                    for (AiServiceTool aiServiceTool : ToolService.findTools(tool)) {
+                        builder.add(aiServiceTool.toolSpecification(), aiServiceTool.toolExecutor());
+                    }
                 }
                 return builder.build();
             }

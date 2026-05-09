@@ -5,6 +5,7 @@ import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.invocation.InvocationParameters;
 import org.springframework.stereotype.Component;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandResult;
+import org.ymz.app.ai.codegen.workspace.CodeGenerationWorkspaceRules;
 import org.ymz.app.model.enums.codegen.CodeGenerationScenario;
 
 import java.io.IOException;
@@ -21,8 +22,6 @@ import java.util.stream.Stream;
  */
 @Component
 public class CodeGenerationPromptContextComposer {
-
-    private static final int MAX_LIST_ITEMS = 300;
 
     public String compose(String basePrompt, InvocationContext invocationContext) {
         InvocationParameters parameters = invocationContext.invocationParameters();
@@ -47,8 +46,8 @@ public class CodeGenerationPromptContextComposer {
             prompt.append("""
 
                     ## 可用工具
-                    - 仅限只读工具：listFiles、readFile、searchFiles。
-                    - 严禁尝试调用 writeFile、replaceInFile、deleteFile、checkProject、finish——它们在本轮不存在。
+                    - 仅限只读工具：readFile、glob、grep。
+                    - 严禁尝试调用 writeFile、editFile、deleteFile、check、build、finish——它们在本轮不存在。
 
                     ## 过程输出要求
                     - 用中文输出简洁、有条理的回答。
@@ -59,9 +58,11 @@ public class CodeGenerationPromptContextComposer {
             prompt.append("""
 
                     ## 可用工具与编辑策略
-                    - 只能调用这些工具：listFiles、readFile、writeFile、replaceInFile、deleteFile、searchFiles、checkProject、finish。
-                    - 小范围修改优先使用 replaceInFile，并确保 oldText 是文件中唯一匹配的完整原文片段。
+                    - 只能调用这些工具：readFile、writeFile、editFile、deleteFile、glob、grep、check、build、finish。
+                    - 小范围修改优先使用 editFile，并确保 oldText 是文件中唯一匹配的完整原文片段。
+                    - editFile 必须先 readFile；writeFile 覆盖已有文件也必须先 readFile，新建文件无需读取。
                     - 只有在需要新增文件、覆盖完整文件或大范围重写时，才使用 writeFile。
+                    - 修改完成后必须先调用 check，再调用 build，二者都通过后才能调用 finish。
                     - 禁止调用未列出的工具名；如果工具调用失败，先读取文件重新定位，再选择正确工具继续。
 
                     ## 过程输出要求
@@ -104,10 +105,10 @@ public class CodeGenerationPromptContextComposer {
         try (Stream<Path> stream = Files.walk(root, 6)) {
             for (Path path : stream
                     .filter(path -> !path.equals(root))
-                    .filter(path -> !isIgnored(root, path))
-                    .limit(MAX_LIST_ITEMS)
+                    .filter(path -> !CodeGenerationWorkspaceRules.isIgnored(root, path))
+                    .limit(CodeGenerationWorkspaceRules.MAX_TOOL_LIST_ITEMS)
                     .toList()) {
-                String relativePath = toRelative(root, path);
+                String relativePath = CodeGenerationWorkspaceRules.toRelative(root, path);
                 lines.add(Files.isDirectory(path) ? relativePath + "/" : relativePath);
             }
             return String.join("\n", lines);
@@ -116,19 +117,4 @@ public class CodeGenerationPromptContextComposer {
         }
     }
 
-    private boolean isIgnored(Path root, Path path) {
-        String relativePath = toRelative(root, path);
-        return relativePath.equals("node_modules")
-                || relativePath.startsWith("node_modules/")
-                || relativePath.equals("dist")
-                || relativePath.startsWith("dist/")
-                || relativePath.equals(".git")
-                || relativePath.startsWith(".git/");
-    }
-
-    private String toRelative(Path root, Path path) {
-        return root.relativize(path.toAbsolutePath().normalize())
-                .toString()
-                .replace('\\', '/');
-    }
 }
