@@ -12,9 +12,7 @@ import lombok.Getter;
 public enum AppChatMessageRole {
 
     USER("用户消息"),
-    ASSISTANT("AI 回复"),
-    TOOL("工具或命令的瞬时事件"),
-    SYSTEM("系统消息");
+    ASSISTANT("AI 回复");
 
     private final String description;
 }

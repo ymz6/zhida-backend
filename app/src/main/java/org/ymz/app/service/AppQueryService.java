@@ -25,16 +25,12 @@ import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 
 import static org.ymz.app.model.entity.table.AppChatMessageTableDef.APP_CHAT_MESSAGE;
 import static org.ymz.app.model.entity.table.AppTableDef.APP;
 import static org.ymz.app.model.enums.app.AppChatMessageRole.ASSISTANT;
-import static org.ymz.app.model.enums.app.AppChatMessageRole.SYSTEM;
 import static org.ymz.app.model.enums.app.AppChatMessageRole.USER;
-import static org.ymz.app.model.enums.app.AppChatMessageType.CHAT;
-import static org.ymz.app.model.enums.app.AppChatMessageType.ERROR;
 
 /**
  * 应用生成前端查询服务实现。
@@ -97,7 +93,6 @@ public class AppQueryService {
                 .from(APP_CHAT_MESSAGE)
                 .where(APP_CHAT_MESSAGE.APP_ID.eq(appId))
                 .and(APP_CHAT_MESSAGE.ROLE.in(visibleRoles()))
-                .and(APP_CHAT_MESSAGE.MESSAGE_TYPE.in(visibleMessageTypes()))
                 .and(APP_CHAT_MESSAGE.ID.lt(request.getBefore(), If::notNull))
                 .orderBy(APP_CHAT_MESSAGE.ID.desc())
                 .limit(request.getLimit() + 1);
@@ -140,16 +135,6 @@ public class AppQueryService {
     }
 
     private List<String> visibleRoles() {
-        return EnumSet.of(USER, ASSISTANT, SYSTEM)
-                .stream()
-                .map(Enum::name)
-                .toList();
-    }
-
-    private List<String> visibleMessageTypes() {
-        return EnumSet.of(CHAT, ERROR)
-                .stream()
-                .map(Enum::name)
-                .toList();
+        return List.of(USER.name(), ASSISTANT.name());
     }
 }

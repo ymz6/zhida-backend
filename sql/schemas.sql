@@ -149,8 +149,8 @@ create table app_chat_message
         primary key,
     app_id       bigint                                not null comment '应用 ID',
     task_id      bigint                                null comment '任务 ID，可为空，普通历史消息可以不绑定具体任务',
-    role         varchar(32)                           not null comment '消息角色：USER-用户，ASSISTANT-AI 助手，TOOL-工具，SYSTEM-系统',
-    message_type varchar(32) default 'CHAT'            not null comment '消息类型：CHAT-普通对话，BUILD_LOG-构建日志，ERROR-错误信息',
+    role         varchar(32)                           not null comment '消息角色：USER-用户，ASSISTANT-AI 助手，TOOL-工具',
+    content_type varchar(16) default 'TEXT'            not null comment '内容类型：TEXT-纯文本，BLOCKS-结构化内容块 JSON',
     content      mediumtext                            not null comment '消息内容',
     metadata     text                                  null comment '消息附加信息，JSON 字符串格式，例如工具名称、文件路径、构建状态等',
     created_at   datetime    default CURRENT_TIMESTAMP not null comment '创建时间'
@@ -165,9 +165,6 @@ create index idx_app_id_id
 
 create index idx_app_id
     on app_chat_message (app_id);
-
-create index idx_message_type
-    on app_chat_message (message_type);
 
 create index idx_role
     on app_chat_message (role);

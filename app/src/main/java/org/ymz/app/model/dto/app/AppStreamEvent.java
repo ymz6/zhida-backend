@@ -35,7 +35,7 @@ public class AppStreamEvent {
 
     private String role;
 
-    private String messageType;
+    private String contentType;
 
     private String content;
 
@@ -44,12 +44,16 @@ public class AppStreamEvent {
     private LocalDateTime createdAt;
 
     public static AppStreamEvent message(AppChatMessage message) {
+        return message(message, "message");
+    }
+
+    public static AppStreamEvent message(AppChatMessage message, String eventType) {
         return AppStreamEvent.builder()
-                .eventType("message")
+                .eventType(eventType)
                 .appId(message.getAppId())
                 .messageId(message.getId())
                 .role(message.getRole())
-                .messageType(message.getMessageType())
+                .contentType(message.getContentType())
                 .content(message.getContent())
                 .metadata(message.getMetadata())
                 .createdAt(message.getCreatedAt())
@@ -61,7 +65,7 @@ public class AppStreamEvent {
                 .eventType("assistant.delta")
                 .appId(appId)
                 .role("ASSISTANT")
-                .messageType("CHAT")
+                .contentType("TEXT")
                 .content(content)
                 .createdAt(LocalDateTime.now())
                 .build();

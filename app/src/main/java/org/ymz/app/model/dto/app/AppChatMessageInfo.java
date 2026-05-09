@@ -16,11 +16,9 @@ public class AppChatMessageInfo {
 
     private Long appId;
 
-    private Long taskId;
-
     private String role;
 
-    private String messageType;
+    private String contentType;
 
     private String content;
 

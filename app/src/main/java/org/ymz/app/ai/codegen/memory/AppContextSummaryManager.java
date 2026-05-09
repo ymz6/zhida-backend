@@ -2,13 +2,18 @@ package org.ymz.app.ai.codegen.memory;
 
 import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.ymz.app.model.dto.app.content.ContentBlock;
+import org.ymz.app.model.dto.app.content.TextBlock;
+import org.ymz.app.model.dto.app.content.ToolUseBlock;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
+import org.ymz.app.model.enums.app.AppChatMessageContentType;
 import org.ymz.app.service.AppChatMessageService;
 import org.ymz.app.service.AppService;
 
@@ -21,7 +26,6 @@ import java.util.List;
 
 import static org.ymz.app.model.entity.table.AppChatMessageTableDef.APP_CHAT_MESSAGE;
 import static org.ymz.app.model.enums.app.AppChatMessageRole.ASSISTANT;
-import static org.ymz.app.model.enums.app.AppChatMessageRole.SYSTEM;
 import static org.ymz.app.model.enums.app.AppChatMessageRole.USER;
 
 /**
@@ -93,7 +97,7 @@ public class AppContextSummaryManager {
                 .select(APP_CHAT_MESSAGE.ALL_COLUMNS)
                 .from(APP_CHAT_MESSAGE)
                 .where(APP_CHAT_MESSAGE.APP_ID.eq(appId))
-                .and(APP_CHAT_MESSAGE.ROLE.in(List.of(USER.name(), ASSISTANT.name(), SYSTEM.name())))
+                .and(APP_CHAT_MESSAGE.ROLE.in(List.of(USER.name(), ASSISTANT.name())))
                 .and(APP_CHAT_MESSAGE.TASK_ID.ne(excludeTaskId))
                 .orderBy(APP_CHAT_MESSAGE.ID.desc())
                 .limit(MAX_RECENT_MESSAGES);
@@ -101,9 +105,34 @@ public class AppContextSummaryManager {
         List<String> lines = new ArrayList<>(messages.size());
         for (int i = messages.size() - 1; i >= 0; i--) {
             AppChatMessage message = messages.get(i);
-            lines.add(message.getRole() + ": " + StrUtil.blankToDefault(message.getContent(), ""));
+            lines.add(message.getRole() + ": " + readableContent(message));
         }
         return lines.isEmpty() ? "无" : String.join("\n", lines);
+    }
+
+    private String readableContent(AppChatMessage message) {
+        if (!AppChatMessageContentType.BLOCKS.name().equals(message.getContentType())) {
+            return StrUtil.blankToDefault(message.getContent(), "");
+        }
+        try {
+            List<ContentBlock> blocks = objectMapper.readValue(
+                    message.getContent(),
+                    new TypeReference<List<ContentBlock>>() {
+                    }
+            );
+            List<String> lines = new ArrayList<>();
+            for (ContentBlock block : blocks) {
+                if (block instanceof TextBlock textBlock && StrUtil.isNotBlank(textBlock.text())) {
+                    lines.add(textBlock.text());
+                } else if (block instanceof ToolUseBlock toolUseBlock) {
+                    lines.add("工具调用: " + toolUseBlock.name()
+                            + (StrUtil.isBlank(toolUseBlock.result()) ? "" : "\n结果: " + toolUseBlock.result()));
+                }
+            }
+            return lines.isEmpty() ? "" : String.join("\n", lines);
+        } catch (JsonProcessingException e) {
+            return StrUtil.blankToDefault(message.getContent(), "");
+        }
     }
 
     private String currentFiles(Path workspacePath) {

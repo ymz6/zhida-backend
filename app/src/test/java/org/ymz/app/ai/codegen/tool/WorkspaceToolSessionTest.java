@@ -183,15 +183,6 @@ class WorkspaceToolSessionTest {
         verify(projectVerifier).verify(1L, 2L, workspacePath);
     }
 
-    private CodeGenerationCommandResult passed(String command) {
-        return CodeGenerationCommandResult.builder()
-                .commandText("pnpm.cmd " + command)
-                .content("$ pnpm.cmd " + command)
-                .exitCode(0)
-                .success(true)
-                .build();
-    }
-
     private CodeGenerationCommandResult failed(String command) {
         return CodeGenerationCommandResult.builder()
                 .commandText("pnpm.cmd " + command)

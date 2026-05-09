@@ -45,14 +45,14 @@ public class AppChatMessage implements Serializable {
     private Long taskId;
 
     /**
-     * 消息角色：USER-用户，ASSISTANT-AI 助手，TOOL-工具，SYSTEM-系统
+     * 消息角色：USER-用户，ASSISTANT-AI 助手，TOOL-工具
      */
     private String role;
 
     /**
-     * 消息类型：CHAT-普通对话，BUILD_LOG-构建日志，ERROR-错误信息
+     * 内容类型：TEXT-纯文本，BLOCKS-结构化内容块 JSON
      */
-    private String messageType;
+    private String contentType;
 
     /**
      * 消息内容

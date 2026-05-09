@@ -4,8 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.ymz.app.ai.codegen.event.CodeGenerationTaskEventRecorder;
 import org.ymz.app.ai.codegen.event.CodeGenerationMessageRecorder;
-import org.ymz.app.model.enums.app.AppChatMessageRole;
-import org.ymz.app.model.enums.app.AppChatMessageType;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -101,8 +99,6 @@ public class CodeGenerationCommandRunner {
         messageRecorder.publishTransientMessage(
                 appId,
                 taskId,
-                AppChatMessageRole.TOOL,
-                AppChatMessageType.BUILD_LOG,
                 "$ " + commandText,
                 Map.of("command", Arrays.asList(command))
         );
@@ -126,8 +122,6 @@ public class CodeGenerationCommandRunner {
                         messageRecorder.publishTransientMessage(
                                 appId,
                                 taskId,
-                                AppChatMessageRole.TOOL,
-                                AppChatMessageType.BUILD_LOG,
                                 line,
                                 Map.of("command", commandText)
                         );

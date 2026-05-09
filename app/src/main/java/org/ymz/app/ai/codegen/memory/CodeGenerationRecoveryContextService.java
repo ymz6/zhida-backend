@@ -1,6 +1,9 @@
 package org.ymz.app.ai.codegen.memory;
 
 import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
@@ -9,7 +12,11 @@ import dev.langchain4j.memory.ChatMemory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.ymz.app.ai.codegen.runtime.CodeGenerationContext;
+import org.ymz.app.model.dto.app.content.ContentBlock;
+import org.ymz.app.model.dto.app.content.TextBlock;
+import org.ymz.app.model.dto.app.content.ToolUseBlock;
 import org.ymz.app.model.entity.AppChatMessage;
+import org.ymz.app.model.enums.app.AppChatMessageContentType;
 import org.ymz.app.service.AppChatMessageService;
 
 import java.util.ArrayList;
@@ -17,7 +24,6 @@ import java.util.List;
 
 import static org.ymz.app.model.entity.table.AppChatMessageTableDef.APP_CHAT_MESSAGE;
 import static org.ymz.app.model.enums.app.AppChatMessageRole.ASSISTANT;
-import static org.ymz.app.model.enums.app.AppChatMessageRole.SYSTEM;
 import static org.ymz.app.model.enums.app.AppChatMessageRole.USER;
 
 /**
@@ -34,6 +40,7 @@ public class CodeGenerationRecoveryContextService {
     private final CodeGenerationChatMemoryFactory memoryFactory;
     private final AppContextSummaryManager appContextSummaryManager;
     private final AppChatMessageService appChatMessageService;
+    private final ObjectMapper objectMapper;
 
     public void bootstrapIfNeeded(CodeGenerationContext context) {
         ChatMemory memory = memoryFactory.create(context.getAppId());
@@ -76,7 +83,7 @@ public class CodeGenerationRecoveryContextService {
             for (AppChatMessage message : recentMessages) {
                 builder.append(message.getRole())
                         .append(": ")
-                        .append(StrUtil.blankToDefault(message.getContent(), ""))
+                        .append(readableContent(message))
                         .append('\n');
             }
         }
@@ -88,7 +95,7 @@ public class CodeGenerationRecoveryContextService {
                 .select(APP_CHAT_MESSAGE.ALL_COLUMNS)
                 .from(APP_CHAT_MESSAGE)
                 .where(APP_CHAT_MESSAGE.APP_ID.eq(context.getAppId()))
-                .and(APP_CHAT_MESSAGE.ROLE.in(List.of(USER.name(), ASSISTANT.name(), SYSTEM.name())))
+                .and(APP_CHAT_MESSAGE.ROLE.in(List.of(USER.name(), ASSISTANT.name())))
                 .and(APP_CHAT_MESSAGE.TASK_ID.ne(context.getTaskId()))
                 .orderBy(APP_CHAT_MESSAGE.ID.desc())
                 .limit(MAX_RECENT_MESSAGES);
@@ -99,6 +106,31 @@ public class CodeGenerationRecoveryContextService {
             ordered.add(messages.get(i));
         }
         return ordered;
+    }
+
+    private String readableContent(AppChatMessage message) {
+        if (!AppChatMessageContentType.BLOCKS.name().equals(message.getContentType())) {
+            return StrUtil.blankToDefault(message.getContent(), "");
+        }
+        try {
+            List<ContentBlock> blocks = objectMapper.readValue(
+                    message.getContent(),
+                    new TypeReference<List<ContentBlock>>() {
+                    }
+            );
+            List<String> lines = new ArrayList<>();
+            for (ContentBlock block : blocks) {
+                if (block instanceof TextBlock textBlock && StrUtil.isNotBlank(textBlock.text())) {
+                    lines.add(textBlock.text());
+                } else if (block instanceof ToolUseBlock toolUseBlock) {
+                    lines.add("工具调用: " + toolUseBlock.name()
+                            + (StrUtil.isBlank(toolUseBlock.result()) ? "" : "\n结果: " + toolUseBlock.result()));
+                }
+            }
+            return lines.isEmpty() ? "" : String.join("\n", lines);
+        } catch (JsonProcessingException e) {
+            return StrUtil.blankToDefault(message.getContent(), "");
+        }
     }
 
     private void appendList(StringBuilder builder, String title, List<String> values) {

@@ -11,11 +11,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.ymz.app.ai.codegen.runtime.CodeGenerationContext;
 import org.ymz.app.model.dto.app.AppStreamEvent;
+import org.ymz.app.model.dto.app.content.ContentBlock;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.entity.AppTaskEvent;
+import org.ymz.app.model.enums.app.AppChatMessageContentType;
 import org.ymz.app.model.enums.app.AppChatMessageRole;
-import org.ymz.app.model.enums.app.AppChatMessageType;
 import org.ymz.app.model.enums.app.AppTaskEventType;
 import org.ymz.app.service.AppTaskEventService;
 
@@ -50,18 +51,20 @@ public class CodeGenerationTaskEventRecorder {
                 AppStreamEvent.assistantDelta(context.getAppId(), delta)
         );
     }
-    public AppChatMessage appendAssistantMessage(CodeGenerationContext context, String content) {
-        AppChatMessage message = messageRecorder.appendMessage(
+    public AppChatMessage appendAssistantMessage(CodeGenerationContext context, List<ContentBlock> blocks) {
+        String content = messageRecorder.serializeBlocks(blocks);
+        AppChatMessage message = messageRecorder.saveMessage(
                 context.getAppId(),
                 context.getTaskId(),
                 AppChatMessageRole.ASSISTANT,
-                AppChatMessageType.CHAT,
-                content
+                AppChatMessageContentType.BLOCKS,
+                content,
+                null
         );
-        taskSseBroker.publish(
+        messageRecorder.publishMessage(
                 context.getTaskId(),
                 AppTaskEventType.ASSISTANT_COMPLETED.getCode(),
-                AppStreamEvent.message(message)
+                message
         );
         return message;
     }

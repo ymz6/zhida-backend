@@ -5,8 +5,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.ymz.app.ai.codegen.event.CodeGenerationTaskEventRecorder;
 import org.ymz.app.ai.codegen.event.CodeGenerationMessageRecorder;
-import org.ymz.app.model.enums.app.AppChatMessageRole;
-import org.ymz.app.model.enums.app.AppChatMessageType;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -47,8 +45,6 @@ class CodeGenerationCommandRunnerTest {
         verify(appTaskLogPublisher, atLeast(3)).publishTransientMessage(
                 eq(1L),
                 eq(2L),
-                eq(AppChatMessageRole.TOOL),
-                eq(AppChatMessageType.BUILD_LOG),
                 transientContentCaptor.capture(),
                 anyMap());
         assertTrue(transientContentCaptor.getAllValues().contains("$ " + String.join(" ", command)));
@@ -78,8 +74,6 @@ class CodeGenerationCommandRunnerTest {
         verify(appTaskLogPublisher, atLeast(2)).publishTransientMessage(
                 eq(1L),
                 eq(2L),
-                eq(AppChatMessageRole.TOOL),
-                eq(AppChatMessageType.BUILD_LOG),
                 transientContentCaptor.capture(),
                 anyMap());
         assertTrue(transientContentCaptor.getAllValues().stream().anyMatch(item -> item.contains("failed-line")));
@@ -123,8 +117,6 @@ class CodeGenerationCommandRunnerTest {
         verify(appTaskLogPublisher, atLeast(3)).publishTransientMessage(
                 eq(1L),
                 eq(2L),
-                eq(AppChatMessageRole.TOOL),
-                eq(AppChatMessageType.BUILD_LOG),
                 anyString(),
                 anyMap());
     }
@@ -148,8 +140,6 @@ class CodeGenerationCommandRunnerTest {
         verify(appTaskLogPublisher, atLeast(3)).publishTransientMessage(
                 eq(1L),
                 eq(2L),
-                eq(AppChatMessageRole.TOOL),
-                eq(AppChatMessageType.BUILD_LOG),
                 anyString(),
                 anyMap());
     }

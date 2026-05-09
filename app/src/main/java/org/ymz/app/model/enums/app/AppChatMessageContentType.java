@@ -4,16 +4,16 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 应用对话消息类型
+ * 应用对话消息内容类型。
+ *
  * @author ymz
  */
 @Getter
 @AllArgsConstructor
-public enum AppChatMessageType {
+public enum AppChatMessageContentType {
 
-    CHAT("普通聊天消息"),
-    BUILD_LOG("命令输出流事件"),
-    ERROR("错误信息");
+    TEXT("纯文本"),
+    BLOCKS("结构化内容块 JSON");
 
     private final String description;
 }

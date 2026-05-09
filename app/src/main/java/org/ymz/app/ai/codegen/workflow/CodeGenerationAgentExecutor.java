@@ -4,9 +4,13 @@ import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandResult;
 
 import org.ymz.app.ai.codegen.event.CodeGenerationTaskEventRecorder;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.invocation.InvocationParameters;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.service.TokenStream;
+import dev.langchain4j.service.tool.ToolExecution;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.ymz.app.ai.codegen.runtime.CodeGenerationContext;
@@ -18,10 +22,15 @@ import org.ymz.app.ai.codegen.agent.ChatCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.CreateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.IterateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.RepairCodeGenerationAiService;
+import org.ymz.app.model.dto.app.content.ContentBlock;
+import org.ymz.app.model.dto.app.content.TextBlock;
+import org.ymz.app.model.dto.app.content.ToolUseBlock;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class CodeGenerationAgentExecutor {
 
     private static final long STREAM_TIMEOUT_MINUTES = 30;
+    private static final int TOOL_RESULT_LIMIT = 2_000;
 
     private final CreateCodeGenerationAiService createCodeGenerationAiService;
     private final IterateCodeGenerationAiService iterateCodeGenerationAiService;
@@ -45,6 +55,7 @@ public class CodeGenerationAgentExecutor {
     private final CodeGenerationTaskEventRecorder taskEventRecorder;
     private final CodeGenerationInvocationGuard invocationGuard;
     private final CodeGenerationRecoveryContextService recoveryContextService;
+    private final ObjectMapper objectMapper;
     public void generate(App app, AppTask task, Path workspacePath) {
         run(CodeGenerationContext.builder()
                 .appId(app.getId())
@@ -100,8 +111,9 @@ public class CodeGenerationAgentExecutor {
         // 当 Redis 中的短期记忆已过期时，用长期摘要和最近关键消息重新热启动上下文。
         recoveryContextService.bootstrapIfNeeded(context);
         InvocationParameters parameters = InvocationParameters.from(Map.of("codegenContext", context));
-        StringBuilder assistantBuffer = new StringBuilder();
-        AtomicReference<String> lastFlushedAssistantMessage = new AtomicReference<>();
+        List<ContentBlock> blockAccumulator = new ArrayList<>();
+        StringBuilder currentText = new StringBuilder();
+        AtomicReference<ToolExecutionRequest> pendingToolRequest = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> errorRef = new AtomicReference<>();
         AtomicReference<ChatResponse> responseRef = new AtomicReference<>();
@@ -115,16 +127,19 @@ public class CodeGenerationAgentExecutor {
 
         tokenStream
                 .onPartialResponse(delta -> {
-                    assistantBuffer.append(delta);
+                    currentText.append(delta);
                     taskEventRecorder.publishTextDelta(context, delta);
                 })
                 .beforeToolExecution(beforeToolExecution -> {
-                    // assistant 普通文本只按“文本轮次”落库，进入工具调用前先切一条完整消息。
-                    flushAssistantBuffer(context, assistantBuffer, lastFlushedAssistantMessage);
+                    // 工具调用前封闭文本块，保证一次回复里的文本和工具顺序可还原。
+                    closeTextBlock(blockAccumulator, currentText);
+                    pendingToolRequest.set(beforeToolExecution.request());
                     taskEventRecorder.publishToolCalled(context, beforeToolExecution.request());
                 })
-                .onToolExecuted(toolExecution ->
-                        taskEventRecorder.publishToolExecuted(context, toolExecution))
+                .onToolExecuted(toolExecution -> {
+                    appendToolUseBlock(blockAccumulator, pendingToolRequest, toolExecution);
+                    taskEventRecorder.publishToolExecuted(context, toolExecution);
+                })
                 .onCompleteResponse(response -> {
                     responseRef.set(response);
                     latch.countDown();
@@ -142,25 +157,17 @@ public class CodeGenerationAgentExecutor {
             throw new IllegalStateException("代码生成失败：" + error.getMessage(), error);
         }
 
-        // 流式响应结束后，再把最后一段未触发工具调用的 assistant 文本落库。
-        String assistantMessage = flushAssistantBuffer(context, assistantBuffer, lastFlushedAssistantMessage);
+        // 流式响应结束后，只落库一条完整 assistant 消息。
+        closeTextBlock(blockAccumulator, currentText);
         WorkspaceToolSession session = parameters.get("workspaceToolSession");
-        if ((assistantMessage == null || assistantMessage.isBlank()) && session != null && session.getFinalSummary() != null) {
-            assistantMessage = session.getFinalSummary().trim();
+        if (blockAccumulator.isEmpty() && session != null && session.getFinalSummary() != null
+                && !session.getFinalSummary().isBlank()) {
+            blockAccumulator.add(new TextBlock(session.getFinalSummary().trim()));
         }
-        if (assistantMessage != null && !assistantMessage.isBlank() && shouldAppendFinalSummary(
-                assistantMessage,
-                lastFlushedAssistantMessage.get()
-        )) {
-            // 没有可分段文本时，用 finish(summary) 兜底补一条最终助手消息。
-            taskEventRecorder.appendAssistantMessage(context, assistantMessage);
-            lastFlushedAssistantMessage.set(assistantMessage);
+        if (!blockAccumulator.isEmpty()) {
+            taskEventRecorder.appendAssistantMessage(context, blockAccumulator);
         }
-
-        String summary = lastFlushedAssistantMessage.get();
-        if ((summary == null || summary.isBlank()) && session != null) {
-            summary = session.getFinalSummary();
-        }
+        String summary = summaryFromBlocks(blockAccumulator, session);
         taskEventRecorder.publishRunFinished(context, summary == null ? "" : summary);
         responseRef.get();
     }
@@ -177,30 +184,66 @@ public class CodeGenerationAgentExecutor {
         }
     }
 
-    String flushAssistantBuffer(
-            CodeGenerationContext context,
-            StringBuilder assistantBuffer,
-            AtomicReference<String> lastFlushedAssistantMessage
-    ) {
-        String content = assistantBuffer.toString().trim();
+    private void closeTextBlock(List<ContentBlock> blocks, StringBuilder currentText) {
+        String content = currentText.toString().trim();
         if (content.isBlank()) {
-            assistantBuffer.setLength(0);
-            return "";
+            currentText.setLength(0);
+            return;
         }
-        // 只保存“可独立阅读的完整段落”，不保存 token 级碎片。
-        taskEventRecorder.appendAssistantMessage(context, content);
-        assistantBuffer.setLength(0);
-        lastFlushedAssistantMessage.set(content);
-        return content;
+        blocks.add(new TextBlock(content));
+        currentText.setLength(0);
     }
 
-    boolean shouldAppendFinalSummary(String assistantMessage, String lastFlushedAssistantMessage) {
-        if (assistantMessage == null || assistantMessage.isBlank()) {
-            return false;
+    private void appendToolUseBlock(
+            List<ContentBlock> blocks,
+            AtomicReference<ToolExecutionRequest> pendingToolRequest,
+            ToolExecution toolExecution
+    ) {
+        ToolExecutionRequest request = pendingToolRequest.getAndSet(null);
+        if (request == null) {
+            request = toolExecution.request();
         }
-        if (lastFlushedAssistantMessage == null || lastFlushedAssistantMessage.isBlank()) {
-            return true;
+        blocks.add(new ToolUseBlock(
+                request.name(),
+                parseToolInput(request.arguments()),
+                toolExecution.hasFailed() ? null : truncate(toolResult(toolExecution), TOOL_RESULT_LIMIT)
+        ));
+    }
+
+    private Object parseToolInput(String arguments) {
+        if (arguments == null || arguments.isBlank()) {
+            return Map.of();
         }
-        return !assistantMessage.trim().equals(lastFlushedAssistantMessage.trim());
+        try {
+            return objectMapper.readValue(arguments, Object.class);
+        } catch (JsonProcessingException e) {
+            return arguments;
+        }
+    }
+
+    private String toolResult(ToolExecution toolExecution) {
+        try {
+            return toolExecution.result();
+        } catch (RuntimeException e) {
+            Object resultObject = toolExecution.resultObject();
+            return resultObject == null ? "" : String.valueOf(resultObject);
+        }
+    }
+
+    private String truncate(String content, int limit) {
+        if (content == null || content.length() <= limit) {
+            return content;
+        }
+        return content.substring(0, limit) + "\n...[truncated]";
+    }
+
+    private String summaryFromBlocks(List<ContentBlock> blocks, WorkspaceToolSession session) {
+        for (int i = blocks.size() - 1; i >= 0; i--) {
+            if (blocks.get(i) instanceof TextBlock textBlock && textBlock.text() != null
+                    && !textBlock.text().isBlank()) {
+                return textBlock.text();
+            }
+        }
+        return session == null ? "" : session.getFinalSummary();
     }
 }

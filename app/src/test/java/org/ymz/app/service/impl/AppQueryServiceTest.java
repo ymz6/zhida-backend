@@ -116,9 +116,9 @@ class AppQueryServiceTest {
         request.setLimit(2);
         when(fixture.appChatMessageService.list(any(QueryWrapper.class)))
                 .thenReturn(List.of(
-                        message(5L, null, "ASSISTANT", "CHAT"),
-                        message(4L, null, "SYSTEM", "CHAT"),
-                        message(3L, null, "USER", "CHAT")
+                        message(5L, null, "ASSISTANT"),
+                        message(4L, null, "USER"),
+                        message(3L, null, "USER")
                 ));
 
         CursorResult<AppChatMessageInfo> result = fixture.service.listAppMessages(10L, 1L, request);
@@ -143,8 +143,8 @@ class AppQueryServiceTest {
         request.setBefore(4L);
         when(fixture.appChatMessageService.list(any(QueryWrapper.class)))
                 .thenReturn(List.of(
-                        message(3L, null, "ASSISTANT", "CHAT"),
-                        message(2L, null, "USER", "CHAT")
+                        message(3L, null, "ASSISTANT"),
+                        message(2L, null, "USER")
                 ));
 
         CursorResult<AppChatMessageInfo> result = fixture.service.listAppMessages(10L, 1L, request);
@@ -187,13 +187,13 @@ class AppQueryServiceTest {
                 .build();
     }
 
-    private AppChatMessage message(Long id, Long taskId, String role, String messageType) {
+    private AppChatMessage message(Long id, Long taskId, String role) {
         return AppChatMessage.builder()
                 .id(id)
                 .appId(1L)
                 .taskId(taskId)
                 .role(role)
-                .messageType(messageType)
+                .contentType("TEXT")
                 .content("msg-" + id)
                 .build();
     }
@@ -244,9 +244,8 @@ class AppQueryServiceTest {
             AppChatMessageInfo info = new AppChatMessageInfo();
             info.setId(message.getId());
             info.setAppId(message.getAppId());
-            info.setTaskId(message.getTaskId());
             info.setRole(message.getRole());
-            info.setMessageType(message.getMessageType());
+            info.setContentType(message.getContentType());
             info.setContent(message.getContent());
             return info;
         }

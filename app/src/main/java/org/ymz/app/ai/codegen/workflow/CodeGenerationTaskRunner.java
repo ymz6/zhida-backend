@@ -12,11 +12,15 @@ import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandResult;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandRunner;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationProjectVerifier;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationWorkspaceManager;
+import org.ymz.app.model.dto.app.ChatMessageMetadata;
+import org.ymz.app.model.dto.app.content.TextBlock;
 import org.ymz.app.model.entity.App;
+import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
+import org.ymz.app.model.enums.app.AppChatMessageContentType;
 import org.ymz.app.model.enums.app.AppChatMessageRole;
-import org.ymz.app.model.enums.app.AppChatMessageType;
 import org.ymz.app.model.enums.app.AppStatus;
+import org.ymz.app.model.enums.app.AppTaskEventType;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskStep;
 import org.ymz.app.model.enums.app.AppTaskType;
@@ -27,7 +31,7 @@ import org.ymz.app.service.AppTaskService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.Map;
+import java.util.List;
 
 /**
  * 编排已启动的应用代码生成任务。
@@ -104,15 +108,8 @@ public class CodeGenerationTaskRunner {
             updateTask(task.getId(), AppTaskStatus.SUCCESS, AppTaskStep.FINISHED, successSummary(taskType), null, finishedAt);
             appTaskMetrics.recordCompleted(task, AppTaskStatus.SUCCESS, finishedAt);
             task = appTaskService.getById(task.getId());
+            attachPreviewMetadata(task.getId(), previewUrl);
             taskEventRecorder.publishStageChanged(task);
-            messageRecorder.appendMessage(
-                    app.getId(),
-                    task.getId(),
-                    AppChatMessageRole.SYSTEM,
-                    AppChatMessageType.CHAT,
-                    successMessage(taskType),
-                    Map.of("previewUrl", previewUrl)
-            );
         } catch (Exception e) {
             log.error("Code generation task failed, taskId={}", taskId, e);
             failTask(task, app, previousPreviewUrl, e.getMessage());
@@ -123,14 +120,6 @@ public class CodeGenerationTaskRunner {
 
     private Path prepareGeneration(AppTaskType taskType, App app, AppTask task) throws Exception {
         if (taskType == AppTaskType.CREATE) {
-            messageRecorder.appendMessage(
-                    app.getId(),
-                    task.getId(),
-                    AppChatMessageRole.SYSTEM,
-                    AppChatMessageType.CHAT,
-                    "任务已启动，系统开始生成应用"
-            );
-
             Path workspacePath = workspaceManager.initializeWorkspace(app.getId());
             updateApp(App.builder()
                     .id(app.getId())
@@ -157,14 +146,6 @@ public class CodeGenerationTaskRunner {
                 .build());
         updateTask(task.getId(), AppTaskStatus.RUNNING, AppTaskStep.GENERATING_CODE, null, null, null);
         taskEventRecorder.publishStageChanged(appTaskService.getById(task.getId()));
-        messageRecorder.appendMessage(
-                app.getId(),
-                task.getId(),
-                AppChatMessageRole.SYSTEM,
-                AppChatMessageType.CHAT,
-                "迭代任务已启动，系统将基于当前应用继续修改",
-                Map.of("workspacePath", workspacePath.toString())
-        );
 
         if (!Files.isDirectory(workspacePath.resolve("node_modules"))) {
             commandRunner.runPnpmCommand(
@@ -194,13 +175,6 @@ public class CodeGenerationTaskRunner {
             }
 
             int repairAttempt = repairCount + 1;
-            messageRecorder.appendMessage(
-                    app.getId(),
-                    task.getId(),
-                    AppChatMessageRole.SYSTEM,
-                    AppChatMessageType.CHAT,
-                    "应用校验失败，系统正在进行第 " + repairAttempt + " 轮自动修复"
-            );
             taskEventRecorder.publishRepairStarted(app.getId(), task.getId(), repairAttempt, failedCommand);
             agentExecutor.repair(app, task, workspacePath, failedCommand, repairAttempt);
         }
@@ -242,14 +216,8 @@ public class CodeGenerationTaskRunner {
             LocalDateTime finishedAt = LocalDateTime.now();
             updateTask(task.getId(), AppTaskStatus.FAILED, AppTaskStep.FINISHED, null, message, finishedAt);
             appTaskMetrics.recordCompleted(task, AppTaskStatus.FAILED, finishedAt);
+            attachErrorMetadata(task.getAppId(), task.getId(), AppTaskType.CHAT, message);
             taskEventRecorder.publishStageChanged(appTaskService.getById(task.getId()));
-            messageRecorder.appendMessage(
-                    task.getAppId(),
-                    task.getId(),
-                    AppChatMessageRole.SYSTEM,
-                    AppChatMessageType.ERROR,
-                    message
-            );
         } finally {
             taskSseBroker.complete(task.getId());
         }
@@ -272,14 +240,8 @@ public class CodeGenerationTaskRunner {
         updateTask(task.getId(), AppTaskStatus.FAILED, AppTaskStep.FINISHED, null, message, finishedAt);
         appTaskMetrics.recordCompleted(task, AppTaskStatus.FAILED, finishedAt);
         AppTask latestTask = appTaskService.getById(task.getId());
+        attachErrorMetadata(task.getAppId(), task.getId(), taskType, message);
         taskEventRecorder.publishStageChanged(latestTask);
-        messageRecorder.appendMessage(
-                task.getAppId(),
-                task.getId(),
-                AppChatMessageRole.SYSTEM,
-                AppChatMessageType.ERROR,
-                message
-        );
     }
 
     private AppTaskType safeTaskType(AppTask task) {
@@ -294,14 +256,53 @@ public class CodeGenerationTaskRunner {
         return taskType == AppTaskType.ITERATE ? "应用迭代成功" : "应用生成成功";
     }
 
-    private String successMessage(AppTaskType taskType) {
-        return taskType == AppTaskType.ITERATE
-                ? "应用迭代完成，可查看最新预览结果"
-                : "应用生成完成，可继续对话迭代或部署预览";
-    }
-
     private String failureMessage(AppTaskType taskType) {
         return taskType == AppTaskType.ITERATE ? "应用迭代失败" : "应用生成失败";
+    }
+
+    private void attachPreviewMetadata(Long taskId, String previewUrl) {
+        AppChatMessage assistantMessage = messageRecorder.getLastAssistantMessage(taskId);
+        if (assistantMessage == null) {
+            return;
+        }
+        messageRecorder.updateMetadata(
+                assistantMessage.getId(),
+                new ChatMessageMetadata(previewUrl, null)
+        );
+    }
+
+    private void attachErrorMetadata(Long appId, Long taskId, AppTaskType taskType, String detail) {
+        ChatMessageMetadata metadata = new ChatMessageMetadata(
+                null,
+                new ChatMessageMetadata.ErrorInfo(errorType(taskType), detail)
+        );
+        AppChatMessage assistantMessage = messageRecorder.getLastAssistantMessage(taskId);
+        if (assistantMessage != null) {
+            messageRecorder.updateMetadata(assistantMessage.getId(), metadata);
+            return;
+        }
+
+        // 如果模型尚未产出 assistant 消息，补一条用户可见的失败回复承载错误元信息。
+        String fallbackText = taskType == AppTaskType.CHAT ? "对话处理失败" : failureMessage(taskType);
+        AppChatMessage message = messageRecorder.saveMessage(
+                appId,
+                taskId,
+                AppChatMessageRole.ASSISTANT,
+                AppChatMessageContentType.BLOCKS,
+                messageRecorder.serializeBlocks(List.of(new TextBlock(fallbackText))),
+                metadata
+        );
+        messageRecorder.publishMessage(taskId, AppTaskEventType.ASSISTANT_COMPLETED.getCode(), message);
+    }
+
+    private String errorType(AppTaskType taskType) {
+        if (taskType == AppTaskType.CHAT) {
+            return "CHAT_FAILED";
+        }
+        if (taskType == AppTaskType.ITERATE) {
+            return "ITERATE_FAILED";
+        }
+        return "CREATE_FAILED";
     }
 
     private void updateApp(App app) {

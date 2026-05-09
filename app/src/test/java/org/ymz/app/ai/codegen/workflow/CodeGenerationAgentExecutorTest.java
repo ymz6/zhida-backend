@@ -1,34 +1,40 @@
 package org.ymz.app.ai.codegen.workflow;
 
-import org.ymz.app.ai.codegen.event.CodeGenerationTaskEventRecorder;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.tool.BeforeToolExecution;
+import dev.langchain4j.service.tool.ToolExecution;
+import dev.langchain4j.service.tool.ToolExecutionResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.ymz.app.ai.codegen.runtime.CodeGenerationInvocationGuard;
-import org.ymz.app.ai.codegen.memory.CodeGenerationRecoveryContextService;
 import org.ymz.app.ai.codegen.agent.ChatCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.CreateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.IterateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.RepairCodeGenerationAiService;
+import org.ymz.app.ai.codegen.event.CodeGenerationTaskEventRecorder;
+import org.ymz.app.ai.codegen.memory.CodeGenerationRecoveryContextService;
+import org.ymz.app.ai.codegen.runtime.CodeGenerationInvocationGuard;
+import org.ymz.app.model.dto.app.content.ContentBlock;
+import org.ymz.app.model.dto.app.content.TextBlock;
+import org.ymz.app.model.dto.app.content.ToolUseBlock;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Map;
 import java.util.function.Consumer;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -36,61 +42,79 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@SuppressWarnings("unchecked")
 class CodeGenerationAgentExecutorTest {
 
     @TempDir
     Path workspacePath;
 
     @Test
-    void flushesAssistantMessageBeforeToolCall() {
+    void appendsOneAssistantMessageWithTextAndToolBlocks() {
         CodeGenerationTaskEventRecorder publisher = mock(CodeGenerationTaskEventRecorder.class);
+        ToolExecutionRequest request = toolRequest("read_file", "{\"path\":\"src/App.jsx\"}");
         CodeGenerationAgentExecutor facade = facade(publisher, scriptedStream(List.of(
                 step -> step.partial("先分析项目结构。"),
-                step -> step.beforeTool(toolRequest("readFile")))));
-
-        facade.generate(app(), task(), workspacePath);
-
-        InOrder inOrder = inOrder(publisher);
-        inOrder.verify(publisher).appendAssistantMessage(any(), eq("先分析项目结构。"));
-        inOrder.verify(publisher).publishToolCalled(any(), any());
-    }
-
-    @Test
-    void splitsAssistantMessagesAcrossMultipleToolBoundaries() {
-        CodeGenerationTaskEventRecorder publisher = mock(CodeGenerationTaskEventRecorder.class);
-        CodeGenerationAgentExecutor facade = facade(publisher, scriptedStream(List.of(
-                step -> step.partial("第一段说明。"),
-                step -> step.beforeTool(toolRequest("readFile")),
-                step -> step.partial("第二段说明。"),
-                step -> step.beforeTool(toolRequest("writeFile")),
+                step -> step.beforeTool(request),
+                step -> step.toolExecuted(toolExecution(request, "读取成功", false)),
                 step -> step.partial("最终总结。"))));
 
         facade.generate(app(), task(), workspacePath);
 
-        verify(publisher, times(3)).appendAssistantMessage(any(), any());
-        verify(publisher).appendAssistantMessage(any(), eq("第一段说明。"));
-        verify(publisher).appendAssistantMessage(any(), eq("第二段说明。"));
-        verify(publisher).appendAssistantMessage(any(), eq("最终总结。"));
+        ArgumentCaptor<List<ContentBlock>> blocksCaptor = ArgumentCaptor.forClass(List.class);
+        verify(publisher, times(1)).appendAssistantMessage(any(), blocksCaptor.capture());
+        List<ContentBlock> blocks = blocksCaptor.getValue();
+
+        assertEquals(3, blocks.size());
+        TextBlock firstText = assertInstanceOf(TextBlock.class, blocks.get(0));
+        assertEquals("先分析项目结构。", firstText.text());
+        ToolUseBlock toolUse = assertInstanceOf(ToolUseBlock.class, blocks.get(1));
+        assertEquals("read_file", toolUse.name());
+        assertEquals(Map.of("path", "src/App.jsx"), toolUse.input());
+        assertEquals("读取成功", toolUse.result());
+        TextBlock lastText = assertInstanceOf(TextBlock.class, blocks.get(2));
+        assertEquals("最终总结。", lastText.text());
+
+        InOrder inOrder = inOrder(publisher);
+        inOrder.verify(publisher).publishToolCalled(any(), any());
+        inOrder.verify(publisher).publishToolExecuted(any(), any());
+        inOrder.verify(publisher).appendAssistantMessage(any(), any());
     }
 
     @Test
-    void doesNotAppendDuplicateFinalSummaryWhenAlreadyFlushed() {
+    void appendsSinglePureTextAssistantMessage() {
         CodeGenerationTaskEventRecorder publisher = mock(CodeGenerationTaskEventRecorder.class);
         CodeGenerationAgentExecutor facade = facade(publisher, scriptedStream(List.of(
-                step -> step.partial("任务已完成。"),
-                step -> step.beforeTool(toolRequest("finish")),
                 step -> step.partial("任务已完成。"))));
 
-        AtomicReference<String> last = new AtomicReference<>("任务已完成。");
-        assertFalse(facade.shouldAppendFinalSummary("任务已完成。", last.get()));
+        facade.generate(app(), task(), workspacePath);
+
+        ArgumentCaptor<List<ContentBlock>> blocksCaptor = ArgumentCaptor.forClass(List.class);
+        verify(publisher, times(1)).appendAssistantMessage(any(), blocksCaptor.capture());
+        TextBlock textBlock = assertInstanceOf(TextBlock.class, blocksCaptor.getValue().getFirst());
+        assertEquals("任务已完成。", textBlock.text());
     }
 
     @Test
-    void appendFinalSummaryWhenNoPreviousAssistantMessage() {
+    void truncatesSuccessfulToolResultAndDropsFailedResult() {
         CodeGenerationTaskEventRecorder publisher = mock(CodeGenerationTaskEventRecorder.class);
-        CodeGenerationAgentExecutor facade = facade(publisher, scriptedStream(List.of()));
+        ToolExecutionRequest successRequest = toolRequest("write_file", "{\"path\":\"src/App.jsx\"}");
+        ToolExecutionRequest failedRequest = toolRequest("run_command", "{}");
+        String longResult = "a".repeat(2_050);
+        CodeGenerationAgentExecutor facade = facade(publisher, scriptedStream(List.of(
+                step -> step.beforeTool(successRequest),
+                step -> step.toolExecuted(toolExecution(successRequest, longResult, false)),
+                step -> step.beforeTool(failedRequest),
+                step -> step.toolExecuted(toolExecution(failedRequest, "失败详情", true)))));
 
-        assertTrue(facade.shouldAppendFinalSummary("任务已完成。", null));
+        facade.generate(app(), task(), workspacePath);
+
+        ArgumentCaptor<List<ContentBlock>> blocksCaptor = ArgumentCaptor.forClass(List.class);
+        verify(publisher).appendAssistantMessage(any(), blocksCaptor.capture());
+        ToolUseBlock successBlock = assertInstanceOf(ToolUseBlock.class, blocksCaptor.getValue().get(0));
+        ToolUseBlock failedBlock = assertInstanceOf(ToolUseBlock.class, blocksCaptor.getValue().get(1));
+        assertEquals(2_015, successBlock.result().length());
+        assertEquals("\n...[truncated]", successBlock.result().substring(2_000));
+        assertNull(failedBlock.result());
     }
 
     @Test
@@ -117,7 +141,8 @@ class CodeGenerationAgentExecutorTest {
                 chatService,
                 publisher,
                 new CodeGenerationInvocationGuard(),
-                recovery);
+                recovery,
+                new ObjectMapper());
     }
 
     private App app() {
@@ -135,10 +160,21 @@ class CodeGenerationAgentExecutorTest {
                 .build();
     }
 
-    private ToolExecutionRequest toolRequest(String name) {
+    private ToolExecutionRequest toolRequest(String name, String arguments) {
         return ToolExecutionRequest.builder()
                 .name(name)
-                .arguments("{}")
+                .arguments(arguments)
+                .build();
+    }
+
+    private ToolExecution toolExecution(ToolExecutionRequest request, String result, boolean failed) {
+        return ToolExecution.builder()
+                .request(request)
+                .result(ToolExecutionResult.builder()
+                        .resultText(result)
+                        .isError(failed)
+                        .build())
+                .invocationContext(InvocationContext.builder().build())
                 .build();
     }
 
@@ -151,6 +187,7 @@ class CodeGenerationAgentExecutorTest {
         private final List<Consumer<ScriptedTokenStream>> script;
         private final List<Consumer<String>> partialHandlers = new ArrayList<>();
         private final List<Consumer<BeforeToolExecution>> beforeToolHandlers = new ArrayList<>();
+        private final List<Consumer<ToolExecution>> toolExecutedHandlers = new ArrayList<>();
         private Consumer<ChatResponse> completeHandler;
         private Consumer<Throwable> errorHandler;
 
@@ -176,7 +213,8 @@ class CodeGenerationAgentExecutorTest {
         }
 
         @Override
-        public TokenStream onToolExecuted(Consumer<dev.langchain4j.service.tool.ToolExecution> toolExecuteHandler) {
+        public TokenStream onToolExecuted(Consumer<ToolExecution> toolExecuteHandler) {
+            toolExecutedHandlers.add(toolExecuteHandler);
             return this;
         }
 
@@ -228,6 +266,12 @@ class CodeGenerationAgentExecutorTest {
                     .build();
             for (Consumer<BeforeToolExecution> handler : beforeToolHandlers) {
                 handler.accept(beforeToolExecution);
+            }
+        }
+
+        private void toolExecuted(ToolExecution toolExecution) {
+            for (Consumer<ToolExecution> handler : toolExecutedHandlers) {
+                handler.accept(toolExecution);
             }
         }
     }

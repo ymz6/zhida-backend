@@ -131,7 +131,6 @@ public class AppChatService {
                 appId,
                 task.getId(),
                 AppChatMessageRole.USER,
-                AppChatMessageType.CHAT,
                 prompt
         );
         return task;
@@ -184,7 +183,7 @@ public class AppChatService {
             String eventName = AppChatMessageRole.ASSISTANT.name().equals(message.getRole())
                     ? "assistant.completed"
                     : "message";
-            items.add(new HistoryReplayItem(message.getCreatedAt(), eventName, AppStreamEvent.message(message)));
+            items.add(new HistoryReplayItem(message.getCreatedAt(), eventName, AppStreamEvent.message(message, eventName)));
         }
         for (AppTaskEvent taskEvent : taskEvents) {
             items.add(new HistoryReplayItem(taskEvent.getCreatedAt(), taskEvent.getEventType(),

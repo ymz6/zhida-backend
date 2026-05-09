@@ -12,7 +12,9 @@ import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandResult;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandRunner;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationProjectVerifier;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationWorkspaceManager;
+import org.ymz.app.model.dto.app.ChatMessageMetadata;
 import org.ymz.app.model.entity.App;
+import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskType;
@@ -72,6 +74,8 @@ class CodeGenerationTaskRunnerTest {
         Files.createDirectories(workspacePath.resolve("node_modules"));
         Fixture fixture = fixture(AppTaskType.ITERATE, "/previews/1/old.html");
         when(fixture.projectVerifier.verify(1L, 2L, workspacePath)).thenReturn(null);
+        when(fixture.messageRecorder.getLastAssistantMessage(2L))
+                .thenReturn(AppChatMessage.builder().id(10L).build());
 
         fixture.runner.runTask(2L);
 
@@ -93,6 +97,9 @@ class CodeGenerationTaskRunnerTest {
         assertTrue(appCaptor.getAllValues().stream()
                 .anyMatch(app -> AppStatus.READY.name().equals(app.getStatus())
                         && "/previews/1/index.html".equals(app.getPreviewUrl())));
+        ArgumentCaptor<ChatMessageMetadata> metadataCaptor = ArgumentCaptor.forClass(ChatMessageMetadata.class);
+        verify(fixture.messageRecorder).updateMetadata(eq(10L), metadataCaptor.capture());
+        assertTrue("/previews/1/index.html".equals(metadataCaptor.getValue().previewUrl()));
     }
 
     @Test
@@ -112,6 +119,13 @@ class CodeGenerationTaskRunnerTest {
         verify(fixture.agentExecutor, times(1)).repair(fixture.app, fixture.task, workspacePath, secondFailure, 2);
         verify(fixture.agentExecutor, times(1)).repair(fixture.app, fixture.task, workspacePath, thirdFailure, 3);
         verify(fixture.projectWorkspaceManager, never()).refreshPreview(1L, workspacePath);
+        verify(fixture.messageRecorder, never()).appendMessage(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
 
         ArgumentCaptor<App> appCaptor = ArgumentCaptor.forClass(App.class);
         verify(fixture.appService, atLeastOnce()).updateById(appCaptor.capture());
@@ -166,6 +180,7 @@ class CodeGenerationTaskRunnerTest {
         return new Fixture(
                 runner,
                 appService,
+                messageRecorder,
                 projectCommandRunner,
                 projectVerifier,
                 projectWorkspaceManager,
@@ -190,6 +205,7 @@ class CodeGenerationTaskRunnerTest {
     private record Fixture(
             CodeGenerationTaskRunner runner,
             AppService appService,
+            CodeGenerationMessageRecorder messageRecorder,
             CodeGenerationCommandRunner projectCommandRunner,
             CodeGenerationProjectVerifier projectVerifier,
             CodeGenerationWorkspaceManager projectWorkspaceManager,
