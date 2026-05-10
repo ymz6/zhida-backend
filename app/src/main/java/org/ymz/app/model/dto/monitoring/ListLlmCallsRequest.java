@@ -1,23 +1,22 @@
 package org.ymz.app.model.dto.monitoring;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Min;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.ymz.app.model.dto.page.PageQuery;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * 统一监控查询请求。
+ * LLM 调用明细分页查询请求。
  *
  * @author ymz
  */
 @Data
-public class MonitoringQueryRequest {
+@EqualsAndHashCode(callSuper = true)
+public class ListLlmCallsRequest extends PageQuery {
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime startTime;
@@ -25,14 +24,19 @@ public class MonitoringQueryRequest {
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime endTime;
 
-    @Min(value = 1, message = "非法指标步长")
-    private Long stepSeconds;
+    private String scenario;
 
-    @Valid
-    private List<MonitoringMetricQuery> metricQueries = new ArrayList<>();
+    private String modelName;
 
-    @Valid
-    private List<MonitoringTableQuery> tableQueries = new ArrayList<>();
+    private String status;
+
+    private String finishReason;
+
+    private String errorType;
+
+    private Long appId;
+
+    private Long taskId;
 
     @Schema(hidden = true)
     @AssertTrue(message = "时间范围不合法")

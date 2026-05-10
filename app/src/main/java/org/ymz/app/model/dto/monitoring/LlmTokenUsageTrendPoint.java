@@ -7,14 +7,14 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 监控时间序列数据点。
+ * LLM Token 用量趋势数据点。
  *
  * @author ymz
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class MonitoringPoint {
+public class LlmTokenUsageTrendPoint {
 
     private LocalDateTime time;
 

@@ -3,6 +3,7 @@ package org.ymz.app.service;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
+import dev.langchain4j.invocation.InvocationParameters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,8 @@ import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskStep;
 import org.ymz.app.model.enums.app.AppTaskType;
-import org.ymz.app.monitoring.AppTaskMetrics;
+import org.ymz.app.ai.monitoring.LlmMonitoringAttributes;
+import org.ymz.app.ai.monitoring.LlmMonitoringContext;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
@@ -53,14 +55,19 @@ public class AppOperationService {
     private final AppDeploymentFileService appDeploymentFileService;
     private final AppDevConfig appDevConfig;
     private final AppCoverCaptureService appCoverCaptureService;
-    private final AppTaskMetrics appTaskMetrics;
     private final CodeGenerationCommandRunner commandRunner;
 
     @Transactional
     public CreateAppResponse createApp(Long userId, CreateAppRequest request) {
         String prompt = StrUtil.trim(request.getPrompt());
         // 由标题生成 AI 来对用户提示词进行初步筛选
-        TitleGenerateResult titleResult = titleGenerateAssistant.chat(prompt);
+        TitleGenerateResult titleResult = titleGenerateAssistant.chat(
+                prompt,
+                InvocationParameters.from(
+                        LlmMonitoringAttributes.CONTEXT,
+                        new LlmMonitoringContext(LlmMonitoringAttributes.SCENARIO_TITLE_GENERATION, null, null)
+                )
+        );
         if (titleResult == null || !titleResult.isAccepted() || StrUtil.isBlank(titleResult.getTitle())) {
             String reason = titleResult == null || titleResult.getReason() == null
                     ? "无法识别应用需求"
@@ -124,8 +131,6 @@ public class AppOperationService {
                 .startedAt(startedAt)
                 .build();
         appTaskService.save(deployTask);
-        appTaskMetrics.recordCreated(AppTaskType.DEPLOY);
-        appTaskMetrics.recordStarted(deployTask);
         appService.updateById(App.builder()
                 .id(appId)
                 .latestTaskId(deployTask.getId())
@@ -202,7 +207,6 @@ public class AppOperationService {
                 .errorMessage(errorMessage)
                 .finishedAt(finishedAt)
                 .build());
-        appTaskMetrics.recordCompleted(deployTask, status, finishedAt);
     }
 
     private void triggerCoverCapture(Long appId, String deployUrl, LocalDateTime deployedAt) {

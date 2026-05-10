@@ -4,237 +4,154 @@ import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import org.junit.jupiter.api.Test;
 import org.ymz.app.converter.MonitoringConverter;
-import org.ymz.app.model.dto.monitoring.MonitoringDashboard;
-import org.ymz.app.model.dto.monitoring.MonitoringDashboardRequest;
-import org.ymz.app.model.dto.monitoring.MonitoringMetricQuery;
-import org.ymz.app.model.dto.monitoring.MonitoringPoint;
-import org.ymz.app.model.dto.monitoring.MonitoringQueryRequest;
-import org.ymz.app.model.dto.monitoring.MonitoringQueryResult;
-import org.ymz.app.model.dto.monitoring.MonitoringSeries;
-import org.ymz.app.model.dto.monitoring.MonitoringTableQuery;
-import org.ymz.app.model.dto.monitoring.MonitoringTableResult;
-import org.ymz.app.model.dto.monitoring.SystemExceptionLogInfo;
-import org.ymz.app.model.entity.AppTask;
+import org.ymz.app.model.dto.monitoring.ListLlmCallsRequest;
+import org.ymz.app.model.dto.monitoring.LlmCallLogInfo;
+import org.ymz.app.model.dto.monitoring.LlmMonitoringOverview;
+import org.ymz.app.model.dto.monitoring.LlmMonitoringOverviewRequest;
+import org.ymz.app.model.dto.monitoring.LlmTokenUsageTrend;
+import org.ymz.app.model.dto.monitoring.LlmTokenUsageTrendRequest;
+import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.entity.LlmCallLog;
-import org.ymz.app.model.entity.SystemExceptionLog;
-import org.ymz.app.model.enums.app.AppTaskStatus;
-import org.ymz.app.model.enums.app.AppTaskType;
-import org.ymz.app.monitoring.PrometheusQueryService;
+import org.ymz.app.model.enums.monitoring.LlmCallStatus;
 import org.ymz.app.service.AdminMonitoringService;
-import org.ymz.app.service.AppTaskService;
 import org.ymz.app.service.LlmCallLogService;
-import org.ymz.app.service.SystemExceptionLogService;
-import org.ymz.app.web.exception.BusinessException;
-import org.ymz.app.web.response.ResultCode;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class AdminMonitoringServiceTest {
 
-        @Test
-        void queryReturnsPrometheusMysqlMetricsAndTaskTable() {
-                Fixture fixture = fixture();
-                LocalDateTime startTime = LocalDateTime.of(2026, 5, 1, 0, 0);
-                LocalDateTime endTime = LocalDateTime.of(2026, 5, 1, 0, 10);
-                when(fixture.prometheusQueryService.queryInstant(any(), any())).thenReturn(12D);
-                when(fixture.prometheusQueryService.queryRange(any(), any(), any(), any(Long.class)))
-                                .thenReturn(List.of(
-                                                series("requests", startTime, 1D, 2D)));
-                when(fixture.appTaskService.list(any(QueryWrapper.class))).thenReturn(List.of(
-                                task(AppTaskType.CREATE, AppTaskStatus.SUCCESS, startTime.plusMinutes(1), 1000),
-                                task(AppTaskType.ITERATE, AppTaskStatus.FAILED, startTime.plusMinutes(2), 3000)));
+    @Test
+    void getOverviewReturnsLlmAggregates() {
+        Fixture fixture = fixture();
+        LocalDateTime startTime = LocalDateTime.of(2026, 5, 1, 0, 0);
+        LocalDateTime endTime = LocalDateTime.of(2026, 5, 1, 1, 0);
+        when(fixture.llmCallLogService.list(any(QueryWrapper.class))).thenReturn(List.of(
+                LlmCallLog.builder()
+                        .status(LlmCallStatus.SUCCESS.name())
+                        .inputTokens(100L)
+                        .outputTokens(50L)
+                        .totalTokens(150L)
+                        .durationMillis(1000L)
+                        .createdAt(startTime.plusMinutes(5))
+                        .build(),
+                LlmCallLog.builder()
+                        .status(LlmCallStatus.FAILED.name())
+                        .inputTokens(50L)
+                        .outputTokens(0L)
+                        .totalTokens(50L)
+                        .durationMillis(3000L)
+                        .createdAt(startTime.plusMinutes(10))
+                        .build()));
+        LlmMonitoringOverviewRequest request = new LlmMonitoringOverviewRequest();
+        request.setStartTime(startTime);
+        request.setEndTime(endTime);
 
-                MonitoringQueryRequest request = new MonitoringQueryRequest();
-                request.setStartTime(startTime);
-                request.setEndTime(endTime);
-                request.setStepSeconds(60L);
-                request.getMetricQueries().add(metricQuery("httpRate", "system.http.request.rate"));
-                request.getMetricQueries().add(metricQuery("taskTotal", "business.task.total"));
-                request.getTableQueries().add(tableQuery("taskTable", "TASK_STAT", Map.of()));
+        LlmMonitoringOverview overview = fixture.service.getOverview(request);
 
-                MonitoringQueryResult result = fixture.service.query(request);
+        assertEquals(startTime, overview.getStartTime());
+        assertEquals(endTime, overview.getEndTime());
+        assertEquals(2L, overview.getCallTotal());
+        assertEquals(0.5D, overview.getSuccessRate());
+        assertEquals(2000L, overview.getAverageDurationMillis());
+        assertEquals(150L, overview.getInputTokens());
+        assertEquals(50L, overview.getOutputTokens());
+        assertEquals(200L, overview.getTotalTokens());
+        assertEquals(1L, overview.getErrorCount());
+    }
 
-                assertEquals(startTime, result.getStartTime());
-                assertEquals(endTime, result.getEndTime());
-                assertEquals(60, result.getStepSeconds());
-                assertEquals(2, result.getMetrics().size());
-                assertEquals("SUCCESS", result.getMetrics().getFirst().getStatus());
-                assertEquals(12D, result.getMetrics().getFirst().getLatestValue());
-                assertEquals(2D, result.getMetrics().get(1).getLatestValue());
-                assertEquals(1, result.getTables().size());
+    @Test
+    void getTokenUsageTrendReturnsFixedSeriesAndEmptyBuckets() {
+        Fixture fixture = fixture();
+        LocalDateTime startTime = LocalDateTime.of(2026, 5, 1, 0, 0);
+        LocalDateTime endTime = LocalDateTime.of(2026, 5, 1, 0, 2);
+        when(fixture.llmCallLogService.list(any(QueryWrapper.class))).thenReturn(List.of(
+                LlmCallLog.builder()
+                        .inputTokens(100L)
+                        .outputTokens(50L)
+                        .totalTokens(150L)
+                        .createdAt(startTime.plusSeconds(10))
+                        .build()));
+        LlmTokenUsageTrendRequest request = new LlmTokenUsageTrendRequest();
+        request.setStartTime(startTime);
+        request.setEndTime(endTime);
+        request.setStepSeconds(60L);
 
-                MonitoringTableResult table = result.getTables().getFirst();
-                assertEquals("TASK_STAT", table.getResource());
-                assertEquals(4, table.getTotal());
-                assertEquals(4, table.getRecords().size());
-        }
+        LlmTokenUsageTrend trend = fixture.service.getTokenUsageTrend(request);
 
-        @Test
-        void queryRejectsUnknownMetricKeyAndUnsupportedFilters() {
-                Fixture fixture = fixture();
-                MonitoringQueryRequest unknownMetricRequest = new MonitoringQueryRequest();
-                unknownMetricRequest.getMetricQueries().add(metricQuery("unknown", "unknown.metric"));
+        assertEquals(startTime, trend.getStartTime());
+        assertEquals(endTime, trend.getEndTime());
+        assertEquals(60L, trend.getStepSeconds());
+        assertEquals(3, trend.getSeries().size());
+        assertEquals("inputTokens", trend.getSeries().get(0).getName());
+        assertEquals(100D, trend.getSeries().get(0).getPoints().get(0).getValue());
+        assertEquals(0D, trend.getSeries().get(0).getPoints().get(1).getValue());
+        assertEquals("outputTokens", trend.getSeries().get(1).getName());
+        assertEquals(50D, trend.getSeries().get(1).getPoints().get(0).getValue());
+        assertEquals("totalTokens", trend.getSeries().get(2).getName());
+        assertEquals(150D, trend.getSeries().get(2).getPoints().get(0).getValue());
+    }
 
-                BusinessException unknownMetric = assertThrows(
-                                BusinessException.class,
-                                () -> fixture.service.query(unknownMetricRequest));
-                assertEquals(ResultCode.INVALID_PARAM, unknownMetric.getResultCode());
+    @Test
+    void listLlmCallsReturnsPagedDetails() {
+        Fixture fixture = fixture();
+        LlmCallLog log = LlmCallLog.builder()
+                .id(2L)
+                .scenario("CODE_GENERATION_CREATE")
+                .createdAt(LocalDateTime.now())
+                .build();
+        LlmCallLogInfo info = new LlmCallLogInfo();
+        info.setId(2L);
+        info.setScenario("CODE_GENERATION_CREATE");
+        when(fixture.llmCallLogService.page(any(Page.class), any(QueryWrapper.class)))
+                .thenReturn(page(List.of(log), 1));
+        when(fixture.monitoringConverter.toLlmCallLogInfo(log)).thenReturn(info);
+        ListLlmCallsRequest request = new ListLlmCallsRequest();
+        request.setScenario("CODE_GENERATION_CREATE");
+        request.setModelName("deepseek-v4-pro");
+        request.setFinishReason("STOP");
+        request.setAppId(1L);
+        request.setTaskId(2L);
+        request.setPageNum(1);
+        request.setPageSize(10);
 
-                MonitoringQueryRequest unsupportedFilterRequest = new MonitoringQueryRequest();
-                unsupportedFilterRequest.getTableQueries().add(tableQuery("taskTable", "TASK_STAT", Map.of(
-                                "status", "SUCCESS")));
+        PageResult<LlmCallLogInfo> result = fixture.service.listLlmCalls(request);
 
-                BusinessException unsupportedFilter = assertThrows(
-                                BusinessException.class,
-                                () -> fixture.service.query(unsupportedFilterRequest));
-                assertEquals(ResultCode.INVALID_PARAM, unsupportedFilter.getResultCode());
-        }
+        assertEquals(1, result.getTotal());
+        assertEquals(1, result.getList().size());
+        assertEquals(2L, result.getList().getFirst().getId());
+        assertEquals("CODE_GENERATION_CREATE", result.getList().getFirst().getScenario());
+        assertEquals(1, result.getPageNum());
+        assertEquals(10, result.getPageSize());
+    }
 
-        @Test
-        void queryReturnsPagedExceptionAndLlmTables() {
-                Fixture fixture = fixture();
-                SystemExceptionLog exceptionLog = SystemExceptionLog.builder()
-                                .id(1L)
-                                .exceptionType("BusinessException")
-                                .createdAt(LocalDateTime.now())
-                                .build();
-                SystemExceptionLogInfo exceptionInfo = new SystemExceptionLogInfo();
-                exceptionInfo.setId(1L);
-                when(fixture.systemExceptionLogService.page(any(Page.class), any(QueryWrapper.class)))
-                                .thenReturn(page(List.of(exceptionLog), 1));
-                when(fixture.monitoringConverter.toSystemExceptionLogInfo(exceptionLog)).thenReturn(exceptionInfo);
+    private Fixture fixture() {
+        LlmCallLogService llmCallLogService = mock(LlmCallLogService.class);
+        MonitoringConverter monitoringConverter = mock(MonitoringConverter.class);
+        AdminMonitoringService service = new AdminMonitoringService(
+                llmCallLogService,
+                monitoringConverter);
+        return new Fixture(
+                service,
+                llmCallLogService,
+                monitoringConverter);
+    }
 
-                LlmCallLog llmCallLog = LlmCallLog.builder()
-                                .id(2L)
-                                .scenario("CODE_GENERATE")
-                                .createdAt(LocalDateTime.now())
-                                .build();
-                when(fixture.llmCallLogService.page(any(Page.class), any(QueryWrapper.class)))
-                                .thenReturn(page(List.of(llmCallLog), 1));
+    private <T> Page<T> page(List<T> records, long total) {
+        Page<T> page = Page.of(1, 10);
+        page.setRecords(records);
+        page.setTotalRow(total);
+        return page;
+    }
 
-                MonitoringQueryRequest request = new MonitoringQueryRequest();
-                request.getTableQueries().add(tableQuery("exceptions", "EXCEPTION_LOG", Map.of(
-                                "exceptionType", "Business",
-                                "resultCode", 40000)));
-                request.getTableQueries().add(tableQuery("llm", "LLM_CALL_LOG", Map.of(
-                                "scenario", "CODE_GENERATE",
-                                "appId", 1,
-                                "taskId", 2)));
-
-                MonitoringQueryResult result = fixture.service.query(request);
-
-                assertEquals(2, result.getTables().size());
-                assertEquals("EXCEPTION_LOG", result.getTables().getFirst().getResource());
-                assertEquals(1, result.getTables().getFirst().getTotal());
-                assertEquals(1, result.getTables().getFirst().getRecords().size());
-                assertEquals("LLM_CALL_LOG", result.getTables().get(1).getResource());
-                assertEquals(1, result.getTables().get(1).getTotal());
-        }
-
-        @Test
-        void dashboardDegradesSystemMetricsWhenPrometheusIsUnavailable() {
-                Fixture fixture = fixture();
-                LocalDateTime now = LocalDateTime.now();
-                when(fixture.prometheusQueryService.queryInstant(any(), any())).thenThrow(new RuntimeException("down"));
-                when(fixture.appTaskService.list(any(QueryWrapper.class))).thenReturn(List.of(
-                                task(AppTaskType.CREATE, AppTaskStatus.SUCCESS, now.minusMinutes(3), 1000)));
-                when(fixture.systemExceptionLogService.list(any(QueryWrapper.class))).thenReturn(List.of(
-                                SystemExceptionLog.builder().createdAt(now.minusMinutes(2)).build()));
-                when(fixture.llmCallLogService.list(any(QueryWrapper.class))).thenReturn(List.of(
-                                LlmCallLog.builder().totalTokens(30L).durationMillis(100L)
-                                                .createdAt(now.minusMinutes(1)).build()));
-
-                MonitoringDashboard dashboard = fixture.service.getDashboard(new MonitoringDashboardRequest());
-
-                assertEquals("DEGRADED", dashboard.getOverallStatus());
-                assertEquals("UNAVAILABLE", dashboard.getSystemCards().getFirst().getStatus());
-                assertEquals(1D, dashboard.getTaskCards().getFirst().getValue());
-                assertEquals(1D, dashboard.getExceptionCards().getFirst().getValue());
-                assertEquals(1D, dashboard.getLlmCards().getFirst().getValue());
-                assertEquals(4, dashboard.getCharts().size());
-        }
-
-        private Fixture fixture() {
-                AppTaskService appTaskService = mock(AppTaskService.class);
-                SystemExceptionLogService systemExceptionLogService = mock(SystemExceptionLogService.class);
-                LlmCallLogService llmCallLogService = mock(LlmCallLogService.class);
-                PrometheusQueryService prometheusQueryService = mock(PrometheusQueryService.class);
-                MonitoringConverter monitoringConverter = mock(MonitoringConverter.class);
-                AdminMonitoringService service = new AdminMonitoringService(
-                                appTaskService,
-                                systemExceptionLogService,
-                                llmCallLogService,
-                                monitoringConverter,
-                                prometheusQueryService);
-                return new Fixture(
-                                service,
-                                appTaskService,
-                                systemExceptionLogService,
-                                llmCallLogService,
-                                prometheusQueryService,
-                                monitoringConverter);
-        }
-
-        private MonitoringMetricQuery metricQuery(String queryId, String key) {
-                MonitoringMetricQuery query = new MonitoringMetricQuery();
-                query.setQueryId(queryId);
-                query.setKey(key);
-                return query;
-        }
-
-        private MonitoringTableQuery tableQuery(String queryId, String resource, Map<String, Object> filters) {
-                MonitoringTableQuery query = new MonitoringTableQuery();
-                query.setQueryId(queryId);
-                query.setResource(resource);
-                query.setPageNum(1);
-                query.setPageSize(10);
-                query.setFilters(filters);
-                return query;
-        }
-
-        private AppTask task(AppTaskType type, AppTaskStatus status, LocalDateTime createdAt, Integer durationMillis) {
-                LocalDateTime startedAt = durationMillis == null ? null : createdAt;
-                LocalDateTime finishedAt = durationMillis == null ? null
-                                : startedAt.plusNanos(durationMillis * 1_000_000L);
-                return AppTask.builder()
-                                .taskType(type.name())
-                                .status(status.name())
-                                .startedAt(startedAt)
-                                .finishedAt(finishedAt)
-                                .createdAt(createdAt)
-                                .build();
-        }
-
-        private MonitoringSeries series(String name, LocalDateTime startTime, Double... values) {
-                MonitoringSeries series = new MonitoringSeries();
-                series.setName(name);
-                for (int i = 0; i < values.length; i++) {
-                        series.getPoints().add(new MonitoringPoint(startTime.plusMinutes(i), values[i]));
-                }
-                return series;
-        }
-
-        private <T> Page<T> page(List<T> records, long total) {
-                Page<T> page = Page.of(1, 10);
-                page.setRecords(records);
-                page.setTotalRow(total);
-                return page;
-        }
-
-        private record Fixture(
-                        AdminMonitoringService service,
-                        AppTaskService appTaskService,
-                        SystemExceptionLogService systemExceptionLogService,
-                        LlmCallLogService llmCallLogService,
-                        PrometheusQueryService prometheusQueryService,
-                        MonitoringConverter monitoringConverter) {
-        }
+    private record Fixture(
+            AdminMonitoringService service,
+            LlmCallLogService llmCallLogService,
+            MonitoringConverter monitoringConverter) {
+    }
 }

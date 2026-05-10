@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 监控时间序列。
+ * LLM Token 用量趋势序列。
  *
  * @author ymz
  */
@@ -17,10 +17,10 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class MonitoringSeries {
+public class LlmTokenUsageTrendSeries {
 
     private String name;
 
     @Builder.Default
-    private List<MonitoringPoint> points = new ArrayList<>();
+    private List<LlmTokenUsageTrendPoint> points = new ArrayList<>();
 }

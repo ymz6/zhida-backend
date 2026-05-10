@@ -24,7 +24,6 @@ import org.ymz.app.model.enums.app.AppTaskEventType;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskStep;
 import org.ymz.app.model.enums.app.AppTaskType;
-import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
 
@@ -55,7 +54,6 @@ public class CodeGenerationTaskRunner {
     private final AppContextSummaryManager appContextSummaryManager;
     private final CodeGenerationCommandRunner commandRunner;
     private final CodeGenerationProjectVerifier projectVerifier;
-    private final AppTaskMetrics appTaskMetrics;
 
     public void runTask(Long taskId) {
         AppTask task = appTaskService.getById(taskId);
@@ -106,7 +104,6 @@ public class CodeGenerationTaskRunner {
                     .build());
             LocalDateTime finishedAt = LocalDateTime.now();
             updateTask(task.getId(), AppTaskStatus.SUCCESS, AppTaskStep.FINISHED, successSummary(taskType), null, finishedAt);
-            appTaskMetrics.recordCompleted(task, AppTaskStatus.SUCCESS, finishedAt);
             task = appTaskService.getById(task.getId());
             attachPreviewMetadata(task.getId(), previewUrl);
             taskEventRecorder.publishStageChanged(task);
@@ -208,14 +205,12 @@ public class CodeGenerationTaskRunner {
             agentExecutor.chat(app, task, workspacePath);
             LocalDateTime finishedAt = LocalDateTime.now();
             updateTask(task.getId(), AppTaskStatus.SUCCESS, AppTaskStep.FINISHED, "对话完成", null, finishedAt);
-            appTaskMetrics.recordCompleted(task, AppTaskStatus.SUCCESS, finishedAt);
             taskEventRecorder.publishStageChanged(appTaskService.getById(task.getId()));
         } catch (Exception e) {
             log.error("Chat task failed, taskId={}", task.getId(), e);
             String message = StrUtil.blankToDefault(e.getMessage(), "对话失败");
             LocalDateTime finishedAt = LocalDateTime.now();
             updateTask(task.getId(), AppTaskStatus.FAILED, AppTaskStep.FINISHED, null, message, finishedAt);
-            appTaskMetrics.recordCompleted(task, AppTaskStatus.FAILED, finishedAt);
             attachErrorMetadata(task.getAppId(), task.getId(), AppTaskType.CHAT, message);
             taskEventRecorder.publishStageChanged(appTaskService.getById(task.getId()));
         } finally {
@@ -238,7 +233,6 @@ public class CodeGenerationTaskRunner {
         }
         LocalDateTime finishedAt = LocalDateTime.now();
         updateTask(task.getId(), AppTaskStatus.FAILED, AppTaskStep.FINISHED, null, message, finishedAt);
-        appTaskMetrics.recordCompleted(task, AppTaskStatus.FAILED, finishedAt);
         AppTask latestTask = appTaskService.getById(task.getId());
         attachErrorMetadata(task.getAppId(), task.getId(), taskType, message);
         taskEventRecorder.publishStageChanged(latestTask);

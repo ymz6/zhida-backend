@@ -19,7 +19,6 @@ import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskStatus;
 import org.ymz.app.model.enums.app.AppTaskStep;
 import org.ymz.app.model.enums.app.AppTaskType;
-import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppOperationService;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
@@ -106,9 +105,6 @@ class AppOperationDeploymentTest {
         assertEquals(30L, taskUpdate.getId());
         assertEquals(AppTaskStatus.SUCCESS.name(), taskUpdate.getStatus());
         assertEquals("应用部署成功", taskUpdate.getResultSummary());
-        verify(fixture.appTaskMetrics).recordCreated(AppTaskType.DEPLOY);
-        verify(fixture.appTaskMetrics).recordStarted(savedTask);
-        verify(fixture.appTaskMetrics).recordCompleted(eq(savedTask), eq(AppTaskStatus.SUCCESS), any(LocalDateTime.class));
     }
 
     @Test
@@ -204,7 +200,6 @@ class AppOperationDeploymentTest {
         AppTask taskUpdate = updatedTaskCaptor.getAllValues().getLast();
         assertEquals(AppTaskStatus.FAILED.name(), taskUpdate.getStatus());
         assertTrue(taskUpdate.getErrorMessage().contains("构建产物不存在"));
-        verify(fixture.appTaskMetrics).recordCompleted(any(AppTask.class), eq(AppTaskStatus.FAILED), any(LocalDateTime.class));
     }
 
     @Test
@@ -253,7 +248,6 @@ class AppOperationDeploymentTest {
         AppTaskService appTaskService = mock(AppTaskService.class);
         AppDeploymentFileService filePublisher = mock(AppDeploymentFileService.class);
         AppCoverCaptureService appCoverCaptureService = mock(AppCoverCaptureService.class);
-        AppTaskMetrics appTaskMetrics = mock(AppTaskMetrics.class);
         CodeGenerationCommandRunner commandRunner = mock(CodeGenerationCommandRunner.class);
         @SuppressWarnings("unchecked")
         UpdateChain<App> updateChain = mock(UpdateChain.class, RETURNS_SELF);
@@ -297,7 +291,6 @@ class AppOperationDeploymentTest {
                 filePublisher,
                 appDevConfig,
                 appCoverCaptureService,
-                appTaskMetrics,
                 commandRunner
         );
         return new Fixture(
@@ -306,7 +299,6 @@ class AppOperationDeploymentTest {
                 appTaskService,
                 filePublisher,
                 appCoverCaptureService,
-                appTaskMetrics,
                 commandRunner,
                 updateChain
         );
@@ -336,7 +328,6 @@ class AppOperationDeploymentTest {
             AppTaskService appTaskService,
             AppDeploymentFileService filePublisher,
             AppCoverCaptureService appCoverCaptureService,
-            AppTaskMetrics appTaskMetrics,
             CodeGenerationCommandRunner commandRunner,
             UpdateChain<App> updateChain
     ) {

@@ -27,6 +27,8 @@ import org.ymz.app.model.dto.app.content.TextBlock;
 import org.ymz.app.model.dto.app.content.ToolUseBlock;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
+import org.ymz.app.ai.monitoring.LlmMonitoringAttributes;
+import org.ymz.app.ai.monitoring.LlmMonitoringContext;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -110,7 +112,14 @@ public class CodeGenerationAgentExecutor {
         taskEventRecorder.publishRunStarted(context);
         // 当 Redis 中的短期记忆已过期时，用长期摘要和最近关键消息重新热启动上下文。
         recoveryContextService.bootstrapIfNeeded(context);
-        InvocationParameters parameters = InvocationParameters.from(Map.of("codegenContext", context));
+        InvocationParameters parameters = InvocationParameters.from(Map.of(
+                "codegenContext", context,
+                LlmMonitoringAttributes.CONTEXT, new LlmMonitoringContext(
+                        context.getScenario().getMonitoringScenario(),
+                        context.getAppId(),
+                        context.getTaskId()
+                )
+        ));
         List<ContentBlock> blockAccumulator = new ArrayList<>();
         StringBuilder currentText = new StringBuilder();
         AtomicReference<ToolExecutionRequest> pendingToolRequest = new AtomicReference<>();

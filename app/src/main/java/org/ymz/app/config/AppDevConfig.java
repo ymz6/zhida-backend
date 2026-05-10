@@ -72,11 +72,6 @@ public class AppDevConfig {
      */
     private final String coverOssPrefix;
 
-    /**
-     * Prometheus 服务地址。
-     */
-    private final String prometheusBaseUrl;
-
     public AppDevConfig() {
         this(
                 "project-template/zhida-react-project",
@@ -90,8 +85,7 @@ public class AppDevConfig {
                 30,
                 2000,
                 0.8f,
-                "app-covers/",
-                "http://localhost:9090"
+                "app-covers/"
         );
     }
 
@@ -107,8 +101,7 @@ public class AppDevConfig {
             int coverPageLoadTimeoutSeconds,
             long coverSettleDelayMillis,
             float coverQuality,
-            String coverOssPrefix,
-            String prometheusBaseUrl
+            String coverOssPrefix
     ) {
         this.generationTemplatePath = generationTemplatePath;
         this.generationWorkspaceRoot = generationWorkspaceRoot;
@@ -122,6 +115,36 @@ public class AppDevConfig {
         this.coverSettleDelayMillis = coverSettleDelayMillis;
         this.coverQuality = coverQuality;
         this.coverOssPrefix = coverOssPrefix;
-        this.prometheusBaseUrl = prometheusBaseUrl;
+    }
+
+    public AppDevConfig(
+            String generationTemplatePath,
+            String generationWorkspaceRoot,
+            String generationPreviewRoot,
+            String generationPreviewUrlPrefix,
+            String deploymentRoot,
+            String deploymentUrlPrefix,
+            int coverViewportWidth,
+            int coverViewportHeight,
+            int coverPageLoadTimeoutSeconds,
+            long coverSettleDelayMillis,
+            float coverQuality,
+            String coverOssPrefix,
+            String ignoredPrometheusBaseUrl
+    ) {
+        this(
+                generationTemplatePath,
+                generationWorkspaceRoot,
+                generationPreviewRoot,
+                generationPreviewUrlPrefix,
+                deploymentRoot,
+                deploymentUrlPrefix,
+                coverViewportWidth,
+                coverViewportHeight,
+                coverPageLoadTimeoutSeconds,
+                coverSettleDelayMillis,
+                coverQuality,
+                coverOssPrefix
+        );
     }
 }

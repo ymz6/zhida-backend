@@ -18,7 +18,6 @@ import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppStatus;
 import org.ymz.app.model.enums.app.AppTaskType;
-import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.service.AppService;
 import org.ymz.app.service.AppTaskService;
 
@@ -144,7 +143,6 @@ class CodeGenerationTaskRunnerTest {
         AppContextSummaryManager appContextSummaryManager = mock(AppContextSummaryManager.class);
         CodeGenerationCommandRunner projectCommandRunner = mock(CodeGenerationCommandRunner.class);
         CodeGenerationProjectVerifier projectVerifier = mock(CodeGenerationProjectVerifier.class);
-        AppTaskMetrics appTaskMetrics = mock(AppTaskMetrics.class);
         App app = App.builder()
                 .id(1L)
                 .name("测试应用")
@@ -173,8 +171,7 @@ class CodeGenerationTaskRunnerTest {
                 agentExecutor,
                 appContextSummaryManager,
                 projectCommandRunner,
-                projectVerifier,
-                appTaskMetrics
+                projectVerifier
         );
 
         return new Fixture(

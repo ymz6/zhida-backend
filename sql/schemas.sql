@@ -178,34 +178,6 @@ create index idx_task_id_id
 create index idx_task_id
     on app_chat_message (task_id);
 
--- 系统异常明细日志表
-create table system_exception_log
-(
-    id             bigint auto_increment comment '主键 ID'
-        primary key,
-    exception_type varchar(255)                          not null comment '异常类型',
-    result_code    int                                   not null comment '统一响应结果码',
-    request_method varchar(16)                           null comment 'HTTP 请求方法',
-    request_path   varchar(512)                          null comment '接口路径或接口模板',
-    error_message  text                                  null comment '错误信息',
-    stack_trace    text                                  null comment '堆栈摘要',
-    user_id        bigint                                null comment '触发异常的用户 ID',
-    created_at     datetime    default CURRENT_TIMESTAMP not null comment '发生时间'
-)
-    comment '系统异常明细日志表' collate = utf8mb4_unicode_ci;
-
-create index idx_exception_created_at
-    on system_exception_log (created_at);
-
-create index idx_exception_type
-    on system_exception_log (exception_type);
-
-create index idx_exception_result_code
-    on system_exception_log (result_code);
-
-create index idx_exception_request_path
-    on system_exception_log (request_path);
-
 -- 大语言模型调用明细日志表
 create table llm_call_log
 (
@@ -213,13 +185,16 @@ create table llm_call_log
         primary key,
     scenario          varchar(64)                           not null comment '调用场景',
     model_name        varchar(128)                          null comment '模型名称',
+    response_id       varchar(128)                          null comment '模型响应 ID',
+    finish_reason     varchar(64)                           null comment '模型停止原因',
     app_id            bigint                                null comment '应用 ID',
     task_id           bigint                                null comment '任务 ID',
     status            varchar(32)                           not null comment '调用状态：SUCCESS-成功，FAILED-失败',
-    prompt_tokens     bigint                                null comment 'Prompt Token 数',
-    completion_tokens bigint                                null comment 'Completion Token 数',
-    total_tokens      bigint                                null comment '总 Token 数',
+    input_tokens      bigint      default 0                 not null comment '输入 Token 数',
+    output_tokens     bigint      default 0                 not null comment '输出 Token 数',
+    total_tokens      bigint      default 0                 not null comment '总 Token 数',
     duration_millis   bigint                                null comment '调用耗时，单位毫秒',
+    error_type        varchar(255)                          null comment '错误类型',
     error_message     text                                  null comment '调用失败信息',
     created_at        datetime    default CURRENT_TIMESTAMP not null comment '创建时间'
 )
@@ -236,6 +211,9 @@ create index idx_llm_model_name
 
 create index idx_llm_status
     on llm_call_log (status);
+
+create index idx_llm_finish_reason
+    on llm_call_log (finish_reason);
 
 create index idx_llm_task_id
     on llm_call_log (task_id);

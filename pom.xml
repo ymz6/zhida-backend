@@ -132,12 +132,6 @@
                 <artifactId>langchain4j-community-redis</artifactId>
                 <version>${langchain4j.version}</version>
             </dependency>
-            <dependency>
-                <groupId>dev.langchain4j</groupId>
-                <artifactId>langchain4j-micrometer-metrics</artifactId>
-                <version>${langchain4j.version}</version>
-            </dependency>
-
         </dependencies>
     </dependencyManagement>
 

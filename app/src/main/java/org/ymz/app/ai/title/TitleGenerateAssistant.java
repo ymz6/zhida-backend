@@ -1,6 +1,8 @@
 package org.ymz.app.ai.title;
 
+import dev.langchain4j.invocation.InvocationParameters;
 import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
 
 /**
  * 应用标题生成助手
@@ -8,5 +10,5 @@ import dev.langchain4j.service.SystemMessage;
  */
 public interface TitleGenerateAssistant {
     @SystemMessage(fromResource = "prompt/application-title-generator.md")
-    TitleGenerateResult chat(String userMessage);
+    TitleGenerateResult chat(@UserMessage String userMessage, InvocationParameters invocationParameters);
 }

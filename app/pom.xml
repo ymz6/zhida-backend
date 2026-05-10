@@ -23,11 +23,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-prometheus</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
@@ -131,11 +126,6 @@
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-community-redis</artifactId>
         </dependency>
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-micrometer-metrics</artifactId>
-        </dependency>
-
         <!-- Selenium 网页截图 -->
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>

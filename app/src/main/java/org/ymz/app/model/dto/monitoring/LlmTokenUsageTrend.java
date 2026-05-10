@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 统一监控查询结果。
+ * LLM Token 用量趋势。
  *
  * @author ymz
  */
@@ -18,17 +18,14 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class MonitoringQueryResult {
+public class LlmTokenUsageTrend {
 
     private LocalDateTime startTime;
 
     private LocalDateTime endTime;
 
-    private long stepSeconds;
+    private Long stepSeconds;
 
     @Builder.Default
-    private List<MonitoringMetricResult> metrics = new ArrayList<>();
-
-    @Builder.Default
-    private List<MonitoringTableResult> tables = new ArrayList<>();
+    private List<LlmTokenUsageTrendSeries> series = new ArrayList<>();
 }

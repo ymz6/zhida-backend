@@ -19,7 +19,6 @@ import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.entity.AppTaskEvent;
 import org.ymz.app.model.enums.app.*;
-import org.ymz.app.monitoring.AppTaskMetrics;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
@@ -48,7 +47,6 @@ public class AppChatService {
     private final CodeGenerationTaskEventRecorder taskEventRecorder;
     private final CodeGenerationTaskSseBroker taskSseBroker;
     private final CodeGenerationTaskRunner codeGenerationTaskRunner;
-    private final AppTaskMetrics appTaskMetrics;
     private final Executor appTaskExecutor;
 
     @Transactional
@@ -119,8 +117,6 @@ public class AppChatService {
                 .startedAt(now)
                 .build();
         appTaskService.save(task);
-        appTaskMetrics.recordCreated(taskType);
-        appTaskMetrics.recordStarted(task);
 
         appService.updateById(App.builder()
                 .id(appId)

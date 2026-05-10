@@ -18,19 +18,25 @@ public class LlmCallLogInfo {
 
     private String modelName;
 
+    private String responseId;
+
+    private String finishReason;
+
     private Long appId;
 
     private Long taskId;
 
     private String status;
 
-    private Long promptTokens;
+    private Long inputTokens;
 
-    private Long completionTokens;
+    private Long outputTokens;
 
     private Long totalTokens;
 
     private Long durationMillis;
+
+    private String errorType;
 
     private String errorMessage;
 

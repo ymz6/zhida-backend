@@ -8,12 +8,12 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDateTime;
 
 /**
- * 监控仪表盘查询请求。
+ * LLM 监控概览查询请求。
  *
  * @author ymz
  */
 @Data
-public class MonitoringDashboardRequest {
+public class LlmMonitoringOverviewRequest {
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime startTime;

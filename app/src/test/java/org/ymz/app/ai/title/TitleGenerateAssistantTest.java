@@ -1,8 +1,11 @@
 package org.ymz.app.ai.title;
 
+import dev.langchain4j.invocation.InvocationParameters;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.ymz.app.ai.monitoring.LlmMonitoringAttributes;
+import org.ymz.app.ai.monitoring.LlmMonitoringContext;
 
 import java.util.List;
 
@@ -67,7 +70,13 @@ class TitleGenerateAssistantTest {
         for (int i = 0; i < prompts.size(); i++) {
             String prompt = prompts.get(i);
 
-            TitleGenerateResult result = titleGenerateAssistant.chat(prompt); // 如果方法名不同，改这里
+            TitleGenerateResult result = titleGenerateAssistant.chat(
+                    prompt,
+                    InvocationParameters.from(
+                            LlmMonitoringAttributes.CONTEXT,
+                            new LlmMonitoringContext(LlmMonitoringAttributes.SCENARIO_TITLE_GENERATION, null, null)
+                    )
+            );
             assertNotNull(result);
 
             System.out.println("==================================================");

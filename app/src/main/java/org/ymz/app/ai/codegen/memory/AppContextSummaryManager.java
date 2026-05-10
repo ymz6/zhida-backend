@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
+import dev.langchain4j.invocation.InvocationParameters;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationWorkspaceRules;
@@ -15,6 +16,8 @@ import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.app.AppChatMessageContentType;
+import org.ymz.app.ai.monitoring.LlmMonitoringAttributes;
+import org.ymz.app.ai.monitoring.LlmMonitoringContext;
 import org.ymz.app.service.AppChatMessageService;
 import org.ymz.app.service.AppService;
 
@@ -50,7 +53,17 @@ public class AppContextSummaryManager {
         AppContextSummaryPayload payload;
         try {
             // 优先让模型基于“已有摘要 + 最近关键消息 + 当前文件树”生成新的结构化摘要。
-            payload = assistant.summarize(summaryPrompt(app, task, workspacePath, existing));
+            payload = assistant.summarize(
+                    summaryPrompt(app, task, workspacePath, existing),
+                    InvocationParameters.from(
+                            LlmMonitoringAttributes.CONTEXT,
+                            new LlmMonitoringContext(
+                                    LlmMonitoringAttributes.SCENARIO_CONTEXT_SUMMARY,
+                                    app.getId(),
+                                    task.getId()
+                            )
+                    )
+            );
             normalize(payload, app);
         } catch (Exception e) {
             // 摘要生成失败时也要保留一个可恢复的最小摘要，避免下一轮完全失忆。

@@ -16,7 +16,7 @@ import org.ymz.app.ai.codegen.agent.CreateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.IterateCodeGenerationAiService;
 import org.ymz.app.ai.codegen.agent.RepairCodeGenerationAiService;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
-import org.ymz.app.monitoring.CodeGenerationAiServiceObservability;
+import org.ymz.app.ai.monitoring.LlmAiServiceObservability;
 
 /**
  * AI Service 工厂配置
@@ -29,16 +29,28 @@ public class AiServiceFactoryConfig {
      * 标题生成助手
      */
     @Bean
-    TitleGenerateAssistant titleGenerateAssistant(ChatModel titleGenerateModel) {
+    TitleGenerateAssistant titleGenerateAssistant(
+            ChatModel titleGenerateModel,
+            LlmAiServiceObservability observability
+    ) {
         return AiServices.builder(TitleGenerateAssistant.class)
                 .chatModel(titleGenerateModel)
+                .registerListener(observability.requestIssuedListener())
+                .registerListener(observability.responseReceivedListener())
+                .registerListener(observability.errorListener())
                 .build();
     }
 
     @Bean
-    AppContextSummaryAssistant appContextSummaryAssistant(ChatModel codeSummaryModel) {
+    AppContextSummaryAssistant appContextSummaryAssistant(
+            ChatModel codeSummaryModel,
+            LlmAiServiceObservability observability
+    ) {
         return AiServices.builder(AppContextSummaryAssistant.class)
                 .chatModel(codeSummaryModel)
+                .registerListener(observability.requestIssuedListener())
+                .registerListener(observability.responseReceivedListener())
+                .registerListener(observability.errorListener())
                 .build();
     }
 
@@ -48,7 +60,7 @@ public class AiServiceFactoryConfig {
             CodeGenerationChatMemoryFactory memoryFactory,
             WorkspaceToolProviderFactory toolProviderFactory,
             CodeGenerationPromptContextComposer promptContextComposer,
-            CodeGenerationAiServiceObservability observability
+            LlmAiServiceObservability observability
     ) {
         return buildCodeGenerationAiService(
                 CreateCodeGenerationAiService.class,
@@ -66,7 +78,7 @@ public class AiServiceFactoryConfig {
             CodeGenerationChatMemoryFactory memoryFactory,
             WorkspaceToolProviderFactory toolProviderFactory,
             CodeGenerationPromptContextComposer promptContextComposer,
-            CodeGenerationAiServiceObservability observability
+            LlmAiServiceObservability observability
     ) {
         return buildCodeGenerationAiService(
                 IterateCodeGenerationAiService.class,
@@ -84,7 +96,7 @@ public class AiServiceFactoryConfig {
             CodeGenerationChatMemoryFactory memoryFactory,
             WorkspaceToolProviderFactory toolProviderFactory,
             CodeGenerationPromptContextComposer promptContextComposer,
-            CodeGenerationAiServiceObservability observability
+            LlmAiServiceObservability observability
     ) {
         return buildCodeGenerationAiService(
                 RepairCodeGenerationAiService.class,
@@ -102,7 +114,7 @@ public class AiServiceFactoryConfig {
             CodeGenerationChatMemoryFactory memoryFactory,
             WorkspaceToolProviderFactory toolProviderFactory,
             CodeGenerationPromptContextComposer promptContextComposer,
-            CodeGenerationAiServiceObservability observability
+            LlmAiServiceObservability observability
     ) {
         return buildCodeGenerationAiService(
                 ChatCodeGenerationAiService.class,
@@ -120,7 +132,7 @@ public class AiServiceFactoryConfig {
             CodeGenerationChatMemoryFactory memoryFactory,
             WorkspaceToolProviderFactory toolProviderFactory,
             CodeGenerationPromptContextComposer promptContextComposer,
-            CodeGenerationAiServiceObservability observability
+            LlmAiServiceObservability observability
     ) {
         return AiServices.builder(type)
                 .streamingChatModel(codeGenerateModel)
