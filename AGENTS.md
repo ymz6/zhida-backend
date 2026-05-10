@@ -2,7 +2,9 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
+## 本项目的需求分析
 
+具体请看 @docs/需求分析.md
 
 ## 常用命令
 
