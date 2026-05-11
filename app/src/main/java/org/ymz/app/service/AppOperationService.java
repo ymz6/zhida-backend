@@ -1,40 +1,40 @@
 package org.ymz.app.service;
 
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
-import com.mybatisflex.core.query.QueryWrapper;
 import dev.langchain4j.invocation.InvocationParameters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandRunner;
 import org.ymz.app.ai.monitoring.LlmMonitoringAttributes;
 import org.ymz.app.ai.monitoring.LlmMonitoringContext;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
 import org.ymz.app.ai.title.TitleGenerateResult;
-import org.ymz.app.config.AppDevConfig;
-import org.ymz.app.deployment.AppCoverCaptureService;
-import org.ymz.app.deployment.AppDeploymentFileService;
+import org.ymz.app.browser.WebPageScreenshotService;
 import org.ymz.app.model.dto.app.CreateAppRequest;
 import org.ymz.app.model.dto.app.CreateAppResponse;
-import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.model.entity.App;
-import org.ymz.app.model.entity.AppTask;
 import org.ymz.app.model.enums.UserRole;
 import org.ymz.app.model.enums.app.*;
+import org.ymz.app.model.enums.oss.BucketType;
+import org.ymz.app.oss.RustFSClient;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
+import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Comparator;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static org.ymz.app.model.entity.table.AppTableDef.APP;
-import static org.ymz.app.model.entity.table.AppTaskTableDef.APP_TASK;
 
 /**
  * 应用创建与部署业务。
@@ -46,15 +46,12 @@ import static org.ymz.app.model.entity.table.AppTaskTableDef.APP_TASK;
 @RequiredArgsConstructor
 public class AppOperationService {
 
-    private static final int DEPLOY_KEY_MAX_ATTEMPTS = 5;
+    private static final String DEPLOY_HOSTNAME = "localhost";
 
     private final TitleGenerateAssistant titleGenerateAssistant;
     private final AppService appService;
-    private final AppTaskService appTaskService;
-    private final AppDeploymentFileService appDeploymentFileService;
-    private final AppDevConfig appDevConfig;
-    private final AppCoverCaptureService appCoverCaptureService;
-    private final CodeGenerationCommandRunner commandRunner;
+    private final WebPageScreenshotService webPageScreenshotService;
+    private final RustFSClient rustFSClient;
 
     /*
      * TODO： 要大改！
@@ -128,181 +125,124 @@ public class AppOperationService {
         return targetPath;
     }
 
-    public DeployAppResponse deployApp(Long userId, Long appId) {
+    /**
+     * 部署应用，并自动给应用截取封面图片
+     * TODO 此方法存在并发生成 deployKey 的风险，但本科毕业设计演示场景下无需加锁，可作为后续优化点
+     */
+    public String deployApp(Long userId, Long appId) {
+        log.debug("开始部署应用");
         App app = appService.getById(appId);
         if (app == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");
         }
+        // 仅作者本人可以部署自己的应用
         if (!userId.equals(app.getUserId())) {
             throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
-        if (!AppStatus.READY.name().equals(app.getStatus())) {
-            throw BusinessException.of(ResultCode.INVALID_PARAM, "当前应用状态不支持部署");
-        }
-        if (hasActiveGenerationTask(appId)) {
-            throw BusinessException.of(ResultCode.INVALID_PARAM, "当前应用已有任务正在执行");
-        }
+        // 校验 deployeKey
+        String deployKey = app.getDeployKey();
 
-        boolean locked = appService.updateChain()
-                .set(APP.DEPLOY_STATUS, AppDeployStatus.DEPLOYING.name())
-                .set(APP.DEPLOY_ERROR_MESSAGE, "")
-                .where(APP.ID.eq(appId))
-                .and(APP.USER_ID.eq(userId))
-                .and(APP.STATUS.eq(AppStatus.READY.name()))
-                .and(APP.DEPLOY_STATUS.ne(AppDeployStatus.DEPLOYING.name()))
-                .update();
-        if (!locked) {
-            throw BusinessException.of(ResultCode.INVALID_PARAM, "当前应用正在部署，请稍后再试");
+        if (StrUtil.isBlank(deployKey)) {
+            // 如果为空，则生成一个 16 位的唯一Key
+            // TODO 本科毕业设计演示场景下，deployKey重复的概率极低，可作为后续优化点
+            deployKey = RandomUtil.randomString(16);
         }
-
-        LocalDateTime startedAt = LocalDateTime.now();
-        AppTask deployTask = AppTask.builder()
-                .appId(appId)
-                .userId(userId)
-                .taskType(AppTaskType.DEPLOY.name())
-                .prompt("部署应用")
-                .status(AppTaskStatus.RUNNING.name())
-                .currentStep(AppTaskStep.BUILDING.name())
-                .createdAt(startedAt)
-                .startedAt(startedAt)
-                .build();
-        appTaskService.save(deployTask);
-        appService.updateById(App.builder()
-                .id(appId)
-                .latestTaskId(deployTask.getId())
-                .build());
 
         try {
-            Path workspacePath = resolveWorkspacePath(app);
-            // 部署前重新执行正式构建，覆盖预览构建产物中的 JSX 插桩信息。
-            commandRunner.runPnpmCommand(
-                    appId,
-                    deployTask.getId(),
-                    workspacePath,
-                    CodeGenerationCommandRunner.LogMode.SUMMARY,
-                    "build");
-            appTaskService.updateById(AppTask.builder()
-                    .id(deployTask.getId())
-                    .status(AppTaskStatus.RUNNING.name())
-                    .currentStep(AppTaskStep.DEPLOYING.name())
-                    .build());
-            Path distPath = resolveDistPath(workspacePath);
-            String deployKey = StrUtil.isBlank(app.getDeployKey()) ? generateUniqueDeployKey() : app.getDeployKey();
-            Path deployPath = appDeploymentFileService.deployDist(distPath, deployKey);
-            String deployUrl = buildDeployUrl(deployKey);
-            LocalDateTime taskFinishedAt = LocalDateTime.now();
-            LocalDateTime deployedAt = taskFinishedAt.withNano(0);
+            Path sourcePath = Paths.get(
+                    System.getProperty("user.dir"),
+                    "tmp",
+                    "app-workspace",
+                    String.valueOf(appId)).normalize();
+            if (!Files.isDirectory(sourcePath)) {
+                throw BusinessException.of(ResultCode.NOT_FOUND, "应用源码目录不存在");
+            }
 
+            // 部署前重新安装依赖并执行正式构建，确保 dist 是最新产物。
+            log.debug("开始安装依赖和构建依赖");
+            for (String command : new String[] { "install", "build" }) {
+                String pnpm = System.getProperty("os.name").toLowerCase().contains("win") ? "pnpm.cmd" : "pnpm";
+                Process process = new ProcessBuilder(pnpm, command)
+                        .directory(sourcePath.toFile())
+                        .redirectErrorStream(true)
+                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                        .start();
+                boolean finished = process.waitFor(10, TimeUnit.MINUTES);
+                if (!finished) {
+                    process.destroyForcibly();
+                    throw new IllegalStateException("部署命令执行超时：pnpm " + command);
+                }
+                if (process.exitValue() != 0) {
+                    throw new IllegalStateException("部署命令执行失败：pnpm " + command);
+                }
+            }
+
+            Path distPath = sourcePath.resolve("dist").normalize();
+            if (!Files.isDirectory(distPath) || !Files.isRegularFile(distPath.resolve("index.html"))) {
+                throw BusinessException.of(ResultCode.INVALID_PARAM, "构建产物不存在");
+            }
+
+            // 正式部署目录放在 tmp 下，并按 deployKey 覆盖，保持演示流程简单直观。
+            log.debug("开始复制文件到部署目录");
+            Path deployPath = Paths.get(System.getProperty("user.dir"), "tmp", "app-deploy", deployKey).normalize();
+            if (Files.exists(deployPath)) {
+                try (Stream<Path> stream = Files.walk(deployPath)) {
+                    // 先删除子文件和子目录，再删除父目录，避免目录非空导致删除失败。
+                    for (Path item : stream.sorted(Comparator.reverseOrder()).toList()) {
+                        Files.delete(item);
+                    }
+                }
+            }
+            try (Stream<Path> stream = Files.walk(distPath)) {
+                for (Path sourceItem : stream.toList()) {
+                    // 保留 dist 内部的相对路径结构，将构建产物复制到部署目录。
+                    Path targetItem = deployPath.resolve(distPath.relativize(sourceItem)).normalize();
+                    if (Files.isDirectory(sourceItem)) {
+                        Files.createDirectories(targetItem);
+                    } else {
+                        Files.createDirectories(targetItem.getParent());
+                        Files.copy(sourceItem, targetItem, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+            }
+
+            String deployUrl = "http://" + DEPLOY_HOSTNAME + "/" + deployKey + "/";
             appService.updateById(App.builder()
                     .id(appId)
-                    .deployStatus(AppDeployStatus.DEPLOYED.name())
                     .deployKey(deployKey)
-                    .deployUrl(deployUrl)
-                    .deployPath(deployPath.toString())
-                    .deployedAt(deployedAt)
-                    .deployErrorMessage("")
+                    .deployedAt(LocalDateTime.now())
                     .build());
-
-            triggerCoverCapture(appId, deployUrl, deployedAt);
-            completeDeployTask(deployTask, AppTaskStatus.SUCCESS, "应用部署成功", null, taskFinishedAt);
-
-            return DeployAppResponse.builder()
-                    .appId(appId)
-                    .deployStatus(AppDeployStatus.DEPLOYED.name())
-                    .deployUrl(deployUrl)
-                    .deployedAt(deployedAt)
-                    .build();
+            log.debug("部署成功，访问路径：{}", deployUrl);
+            // 部署成功后，异步地去给应用截取封面图片
+            Thread.startVirtualThread(() -> {
+                log.debug("开始截图...");
+                try {
+                    // 部署接口先返回访问地址，封面截图、上传 OSS 和 coverUrl 写回在后台虚拟线程中完成。
+                    byte[] coverBytes = webPageScreenshotService.captureJpeg(deployUrl);
+                    String coverKey = "app-covers/" + appId + "/" + IdUtil.fastSimpleUUID() + ".jpg";
+                    try (ByteArrayInputStream inputStream = new ByteArrayInputStream(coverBytes)) {
+                        rustFSClient.uploadObject(BucketType.PUBLIC, inputStream, coverKey, "image/jpeg",
+                                coverBytes.length);
+                    }
+                    String coverUrl = rustFSClient.getPublicObjectUrl(coverKey);
+                    appService.updateChain()
+                            .set(APP.COVER_URL, coverUrl)
+                            .where(APP.ID.eq(appId))
+                            .update();
+                    log.debug("截图成功");
+                } catch (Exception e) {
+                    log.warn("应用封面生成失败: appId={}, deployUrl={}", appId, deployUrl, e);
+                }
+            });
+            return deployUrl;
         } catch (Exception e) {
-            String message = StrUtil.blankToDefault(e.getMessage(), "应用部署失败");
-            appService.updateById(App.builder()
-                    .id(appId)
-                    .deployStatus(AppDeployStatus.FAILED.name())
-                    .deployErrorMessage(message)
-                    .build());
-            completeDeployTask(deployTask, AppTaskStatus.FAILED, null, message, LocalDateTime.now());
-            if (e instanceof IllegalStateException) {
-                throw BusinessException.of(ResultCode.INVALID_PARAM, message);
+            log.warn("应用部署失败: appId={}", appId, e);
+            if (e instanceof BusinessException businessException) {
+                throw businessException;
             }
-            throw BusinessException.of(ResultCode.SYSTEM_ERROR, message);
+            throw BusinessException.of(ResultCode.SYSTEM_ERROR, "应用部署失败");
         }
+
     }
 
-    private void completeDeployTask(
-            AppTask deployTask,
-            AppTaskStatus status,
-            String resultSummary,
-            String errorMessage,
-            LocalDateTime finishedAt) {
-        appTaskService.updateById(AppTask.builder()
-                .id(deployTask.getId())
-                .status(status.name())
-                .currentStep(AppTaskStep.FINISHED.name())
-                .resultSummary(resultSummary)
-                .errorMessage(errorMessage)
-                .finishedAt(finishedAt)
-                .build());
-    }
-
-    private void triggerCoverCapture(Long appId, String deployUrl, LocalDateTime deployedAt) {
-        try {
-            appCoverCaptureService.captureCoverAsync(appId, deployUrl, deployedAt);
-        } catch (Exception e) {
-            log.warn("提交应用封面生成任务失败: appId={}, deployUrl={}", appId, deployUrl, e);
-        }
-    }
-
-    private Path resolveWorkspacePath(App app) {
-        if (StrUtil.isBlank(app.getWorkspacePath())) {
-            throw new IllegalStateException("应用工作区不存在，无法部署");
-        }
-        Path workspacePath = Path.of(app.getWorkspacePath()).toAbsolutePath().normalize();
-        if (!Files.isDirectory(workspacePath)) {
-            throw new IllegalStateException("应用工作区不存在，无法部署：" + workspacePath);
-        }
-        return workspacePath;
-    }
-
-    private Path resolveDistPath(Path workspacePath) {
-        Path distPath = workspacePath.resolve("dist").normalize();
-        if (!Files.isDirectory(distPath) || !Files.isRegularFile(distPath.resolve("index.html"))) {
-            throw new IllegalStateException("构建产物不存在，请检查 dist/index.html");
-        }
-        return distPath;
-    }
-
-    private String generateUniqueDeployKey() {
-        for (int i = 0; i < DEPLOY_KEY_MAX_ATTEMPTS; i++) {
-            String deployKey = IdUtil.simpleUUID();
-            QueryWrapper query = QueryWrapper.create()
-                    .select(APP.ID)
-                    .from(APP)
-                    .where(APP.DEPLOY_KEY.eq(deployKey));
-            if (appService.count(query) == 0) {
-                return deployKey;
-            }
-        }
-        throw new IllegalStateException("部署标识生成失败，请重试");
-    }
-
-    private String buildDeployUrl(String deployKey) {
-        String prefix = StrUtil.blankToDefault(appDevConfig.getDeploymentUrlPrefix(), "http://localhost/apps");
-        while (prefix.endsWith("/")) {
-            prefix = prefix.substring(0, prefix.length() - 1);
-        }
-        return prefix + "/" + deployKey + "/";
-    }
-
-    private boolean hasActiveGenerationTask(Long appId) {
-        QueryWrapper query = QueryWrapper.create()
-                .select(APP_TASK.ID)
-                .from(APP_TASK)
-                .where(APP_TASK.APP_ID.eq(appId))
-                .and(APP_TASK.TASK_TYPE.in(List.of(
-                        AppTaskType.CREATE.name(),
-                        AppTaskType.ITERATE.name())))
-                .and(APP_TASK.STATUS.in(List.of(
-                        AppTaskStatus.PENDING.name(),
-                        AppTaskStatus.RUNNING.name())));
-        return appTaskService.count(query) > 0;
-    }
 }

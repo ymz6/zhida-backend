@@ -130,7 +130,7 @@ public class AppController {
     // 复习一下，然后重新设计
     @PostMapping("/{appId}/deploy")
     @Operation(operationId = "deployApp")
-    public Response<DeployAppResponse> deployApp(@PathVariable Long appId) {
+    public Response<String> deployApp(@PathVariable Long appId) {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(appOperationService.deployApp(authContext.getUserId(), appId));
     }

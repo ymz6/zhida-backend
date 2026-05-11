@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
  *
  * @author ymz
  */
+@Deprecated
 @Getter
 @Component
 public class AppDevConfig {
@@ -85,8 +86,7 @@ public class AppDevConfig {
                 30,
                 2000,
                 0.8f,
-                "app-covers/"
-        );
+                "app-covers/");
     }
 
     public AppDevConfig(
@@ -101,8 +101,7 @@ public class AppDevConfig {
             int coverPageLoadTimeoutSeconds,
             long coverSettleDelayMillis,
             float coverQuality,
-            String coverOssPrefix
-    ) {
+            String coverOssPrefix) {
         this.generationTemplatePath = generationTemplatePath;
         this.generationWorkspaceRoot = generationWorkspaceRoot;
         this.generationPreviewRoot = generationPreviewRoot;
@@ -130,8 +129,7 @@ public class AppDevConfig {
             long coverSettleDelayMillis,
             float coverQuality,
             String coverOssPrefix,
-            String ignoredPrometheusBaseUrl
-    ) {
+            String ignoredPrometheusBaseUrl) {
         this(
                 generationTemplatePath,
                 generationWorkspaceRoot,
@@ -144,7 +142,6 @@ public class AppDevConfig {
                 coverPageLoadTimeoutSeconds,
                 coverSettleDelayMillis,
                 coverQuality,
-                coverOssPrefix
-        );
+                coverOssPrefix);
     }
 }

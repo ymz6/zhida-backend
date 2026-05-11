@@ -20,9 +20,4 @@ public class AppTaskExecutorConfig {
     public Executor appTaskExecutor() {
         return new VirtualThreadTaskExecutor("app-task-");
     }
-
-    @Bean("appCoverExecutor")
-    public Executor appCoverExecutor() {
-        return new VirtualThreadTaskExecutor("app-cover-");
-    }
 }

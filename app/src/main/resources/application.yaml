@@ -22,19 +22,9 @@ springdoc:
     path: /v1/api-docs
   swagger-ui:
     enabled: false
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
-    health:
-      probes:
-        enabled: true
-      show-details: when-authorized
-  metrics:
-    tags:
-      application: ${spring.application.name}
+logging:
+  level:
+    "[org.ymz.app]": DEBUG
 mybatis-flex:
   configuration:
     # 方便开发阶段排查问题的日志
