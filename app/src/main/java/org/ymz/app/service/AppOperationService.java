@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.ymz.app.ai.services.TitleGenerateAiService;
 import org.ymz.app.browser.WebPageScreenshotService;
+import org.ymz.app.model.dto.CreateAppRequest;
+import org.ymz.app.model.dto.TitleGenerateResult;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.enums.UserRole;
 import org.ymz.app.model.enums.oss.BucketType;
@@ -45,42 +47,79 @@ public class AppOperationService {
     private final WebPageScreenshotService webPageScreenshotService;
     private final RustFSClient rustFSClient;
 
-    /*
-     * TODO： 要大改！
+    /**
+     * 创建应用
      */
+    public Long createApp(Long userId, CreateAppRequest request) {
+        // 创建应用成功后返回应用 ID
+        String initPrompt = request.getInitPrompt().trim();
+        // 标题生成 AI Service 来对于用户初始提示词进行初筛
+        TitleGenerateResult titleGenerateResult = titleGenerateAiService.chat(initPrompt);
+        if (titleGenerateResult == null) {
+            // AI 调用出错
+            log.warn("应用标题生成失败");
+            throw BusinessException.of(ResultCode.SYSTEM_ERROR, "标题生成失败");
+        }
+        if (!titleGenerateResult.isAccepted()) {
+            throw BusinessException.of(ResultCode.INVALID_PARAM, titleGenerateResult.getReason().getDescription());
+        }
+        App app = App.builder()
+                .name(titleGenerateResult.getTitle())
+                .initPrompt(initPrompt)
+                .userId(userId)
+                .build();
+        appService.save(app);
+        // 初始化应用工作区
+        // 将项目模板（project-template/zhida-react-project）复制到应用工作区（tmp/app-workspace/{appId}）
+        try {
+            Path projectRootPath = Paths.get(System.getProperty("user.dir")).normalize();
+            Path templatePath = projectRootPath.resolve("project-template").resolve("zhida-react-project").normalize();
+            if (!Files.isDirectory(templatePath)) {
+                throw new IllegalStateException("项目模板目录不存在");
+            }
 
-//    @Transactional
-//    public CreateAppResponse createApp(Long userId, CreateAppRequest request) {
-//        String prompt = StrUtil.trim(request.getPrompt());
-//        // 由标题生成 AI 来对用户提示词进行初步筛选
-//        TitleGenerateResult titleResult = titleGenerateAiService.chat(
-//                prompt,
-//                InvocationParameters.from(
-//                        LlmMonitoringAttributes.CONTEXT,
-//                        new LlmMonitoringContext(LlmMonitoringAttributes.SCENARIO_TITLE_GENERATION, null, null)));
-//        if (titleResult == null || !titleResult.isAccepted() || StrUtil.isBlank(titleResult.getTitle())) {
-//            String reason = titleResult == null || titleResult.getReason() == null
-//                    ? "无法识别应用需求"
-//                    : titleResult.getReason().getDescription();
-//            throw BusinessException.of(ResultCode.INVALID_PARAM, reason);
-//        }
-//
-//        App app = App.builder()
-//                .userId(userId)
-//                .name(titleResult.getTitle())
-//                .initPrompt(prompt)
-//                .status(AppStatus.CREATING.name())
-//                .deployStatus(AppDeployStatus.UNDEPLOYED.name())
-//                .createdAt(LocalDateTime.now())
-//                .build();
-//        appService.save(app);
-//
-//        return CreateAppResponse.builder()
-//                .appId(app.getId())
-//                .name(app.getName())
-//                .status(app.getStatus())
-//                .build();
-//    }
+            Path workspacePath = projectRootPath
+                    .resolve("tmp")
+                    .resolve("app-workspace")
+                    .resolve(String.valueOf(app.getId()))
+                    .normalize();
+
+            try (Stream<Path> stream = Files.walk(templatePath)) {
+                for (Path sourceItem : stream.toList()) {
+                    // 保留模板内部目录结构，复制成当前应用独立工作区。
+                    Path targetItem = workspacePath.resolve(templatePath.relativize(sourceItem)).normalize();
+                    if (Files.isDirectory(sourceItem)) {
+                        Files.createDirectories(targetItem);
+                    } else {
+                        Files.createDirectories(targetItem.getParent());
+                        Files.copy(sourceItem, targetItem, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+            }
+
+            // 安装项目依赖
+            String pnpm = System.getProperty("os.name").toLowerCase().contains("win") ? "pnpm.cmd" : "pnpm";
+            Process process = new ProcessBuilder(pnpm, "install")
+                    .directory(workspacePath.toFile())
+                    .redirectErrorStream(true)
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+            boolean finished = process.waitFor(10, TimeUnit.MINUTES);
+            if (!finished) {
+                process.destroyForcibly();
+                throw new IllegalStateException("依赖安装超时：pnpm install");
+            }
+            if (process.exitValue() != 0) {
+                throw new IllegalStateException("依赖安装失败：pnpm install");
+            }
+        } catch (Exception e) {
+            // TODO 毕设演示场景下工作区初始化失败概率较低，暂不做应用记录回滚；后续可补充失败后的工作区清理和数据库记录回滚。
+            log.warn("应用工作区初始化失败: appId={}", app.getId(), e);
+            throw BusinessException.of(ResultCode.SYSTEM_ERROR, "应用工作区初始化失败");
+        }
+
+        return app.getId();
+    }
 
     /**
      * 获取预览的静态资源
@@ -181,7 +220,7 @@ public class AppOperationService {
                 try (Stream<Path> stream = Files.walk(deployPath)) {
                     // 先删除子文件和子目录，再删除父目录，避免目录非空导致删除失败。
                     for (Path item : stream.sorted(Comparator.reverseOrder()).toList()) {
-                        Files.delete(item);
+                        Files.deleteIfExists(item);
                     }
                 }
             }

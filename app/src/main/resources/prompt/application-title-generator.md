@@ -3,7 +3,7 @@
 你只能输出一个 JSON 对象，包含以下字段：
 ```json
 {
-"accepted": "boolean，用户输入是否有效并可用于生成应用标题",
+"accepted": "boolean，用户输入是否有效",
 "title": "string，生成的应用标题",
 "reason": "enum，原因代称，可选值为 OK、TOO_SHORT、TOO_VAGUE、MEANINGLESS_INPUT"
 }

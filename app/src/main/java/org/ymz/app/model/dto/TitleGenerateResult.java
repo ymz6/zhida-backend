@@ -11,7 +11,7 @@ import org.ymz.app.model.enums.TitleGenerateReason;
 @Data
 @Description("应用标题生成结果")
 public class TitleGenerateResult {
-    @Description("用户输入是否有效并可用于生成应用标题")
+    @Description("用户输入是否有效")
     private boolean accepted;
     @Description("生成的应用标题")
     private String title;

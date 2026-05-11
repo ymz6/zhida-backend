@@ -3,6 +3,7 @@ package org.ymz.app.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerMapping;
+import org.ymz.app.model.dto.CreateAppRequest;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
 import org.ymz.app.security.LoginRequired;
@@ -53,6 +55,13 @@ public class AppController {
 //        AuthContext authContext = AuthContextHolder.get();
 //        return Response.ok(appQueryService.getApp(authContext.getUserId(), appId));
 //    }
+    // 要重新设计
+    @PostMapping
+    @Operation(operationId = "createApp")
+    public Response<Long> createApp(@RequestBody @Valid CreateAppRequest request) {
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appOperationService.createApp(authContext.getUserId(), request));
+    }
 
     // 预览应用 已经稳定
     @GetMapping("/preview/{appId}/**")
@@ -97,13 +106,7 @@ public class AppController {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(appOperationService.deployApp(authContext.getUserId(), appId));
     }
-    // 要重新设计
-//    @PostMapping
-//    @Operation(operationId = "createApp")
-//    public Response<CreateAppResponse> createApp(@RequestBody @Valid CreateAppRequest request) {
-//        AuthContext authContext = AuthContextHolder.get();
-//        return Response.ok(appOperationService.createApp(authContext.getUserId(), request));
-//    }
+
 
     // 要重新设计
     // @PostMapping(value = "/{appId}/chat", produces =
