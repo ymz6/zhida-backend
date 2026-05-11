@@ -10,7 +10,7 @@ import lombok.Getter;
  */
 @Getter
 @AllArgsConstructor
-public enum LlmCallStatus {
+public enum LlmStatus {
 
     SUCCESS("调用成功"),
     FAILED("调用失败");

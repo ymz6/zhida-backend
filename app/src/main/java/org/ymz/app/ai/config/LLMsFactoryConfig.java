@@ -6,6 +6,7 @@ import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.ymz.app.ai.listener.LLMLogListener;
 
 import java.util.Map;
 
@@ -21,7 +22,7 @@ public class LLMsFactoryConfig {
      * 标题生成模型
      */
     @Bean
-    public ChatModel titleGenerateModel() {
+    public ChatModel titleGenerateModel(LLMLogListener llmLogListener) {
         final String API_KEY = System.getenv("ZHIDA_TITLE_GEN_API_KEY");
         if (StrUtil.isBlank(API_KEY)) {
             throw new IllegalStateException("未检测到环境变量 ZHIDA_TITLE_GEN_API_KEY，请先在操作系统中设置");
@@ -38,6 +39,7 @@ public class LLMsFactoryConfig {
                         Map.of("enable_thinking", false))
                 .logRequests(true)
                 .logResponses(true)
+                .listeners(llmLogListener)
                 .build();
     }
 
