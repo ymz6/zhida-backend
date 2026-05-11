@@ -1,4 +1,4 @@
-package org.ymz.app.ai.title;
+package org.ymz.app.model.dto;
 
 import dev.langchain4j.model.output.structured.Description;
 import lombok.Data;

@@ -20,7 +20,7 @@ import java.util.Map;
  * @author ymz
  */
 @Configuration
-public class LLMsConfig {
+public class LLMsFactoryConfig {
 
     /**
      * 标题生成模型
@@ -49,7 +49,7 @@ public class LLMsConfig {
     }
 
     /**
-     * 代码生成模型，本 Agent 应用的大脑
+     * 代码生成模型
      */
     @Bean
     public StreamingChatModel codeGenerateModel(List<ChatModelListener> chatModelListeners) {
@@ -67,31 +67,6 @@ public class LLMsConfig {
                 .timeout(Duration.ofMinutes(30))
                 .customParameters(Map.of(
                         // 暂时禁用思考模式，后续会考虑打开
-                        "thinking", Map.of("type", "disabled")))
-                .listeners(chatModelListeners)
-                .logRequests(true)
-                .logResponses(true)
-                .build();
-    }
-
-    /**
-     * 应用长期上下文摘要模型
-     */
-    @Bean
-    public ChatModel codeSummaryModel(List<ChatModelListener> chatModelListeners) {
-        final String API_KEY = System.getenv("ZHIDA_CODE_GEN_API_KEY");
-        if (StrUtil.isBlank(API_KEY)) {
-            throw new IllegalStateException("未检测到环境变量 ZHIDA_CODE_GEN_API_KEY，请先在操作系统中设置");
-        }
-
-        return OpenAiChatModel.builder()
-                .baseUrl("https://api.deepseek.com")
-                .apiKey(API_KEY)
-                .modelName("deepseek-v4-pro")
-                .temperature(0.1)
-                .timeout(Duration.ofMinutes(10))
-                .responseFormat(ResponseFormat.JSON)
-                .customParameters(Map.of(
                         "thinking", Map.of("type", "disabled")))
                 .listeners(chatModelListeners)
                 .logRequests(true)

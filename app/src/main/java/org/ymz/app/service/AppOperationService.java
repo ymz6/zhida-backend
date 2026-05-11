@@ -3,21 +3,13 @@ package org.ymz.app.service;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
-import dev.langchain4j.invocation.InvocationParameters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.ymz.app.ai.monitoring.LlmMonitoringAttributes;
-import org.ymz.app.ai.monitoring.LlmMonitoringContext;
-import org.ymz.app.ai.title.TitleGenerateAssistant;
-import org.ymz.app.ai.title.TitleGenerateResult;
+import org.ymz.app.ai.services.TitleGenerateAiService;
 import org.ymz.app.browser.WebPageScreenshotService;
-import org.ymz.app.model.dto.app.CreateAppRequest;
-import org.ymz.app.model.dto.app.CreateAppResponse;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.enums.UserRole;
-import org.ymz.app.model.enums.app.*;
 import org.ymz.app.model.enums.oss.BucketType;
 import org.ymz.app.oss.RustFSClient;
 import org.ymz.app.security.AuthContext;
@@ -48,7 +40,7 @@ public class AppOperationService {
 
     private static final String DEPLOY_HOSTNAME = "localhost";
 
-    private final TitleGenerateAssistant titleGenerateAssistant;
+    private final TitleGenerateAiService titleGenerateAiService;
     private final AppService appService;
     private final WebPageScreenshotService webPageScreenshotService;
     private final RustFSClient rustFSClient;
@@ -57,38 +49,38 @@ public class AppOperationService {
      * TODO： 要大改！
      */
 
-    @Transactional
-    public CreateAppResponse createApp(Long userId, CreateAppRequest request) {
-        String prompt = StrUtil.trim(request.getPrompt());
-        // 由标题生成 AI 来对用户提示词进行初步筛选
-        TitleGenerateResult titleResult = titleGenerateAssistant.chat(
-                prompt,
-                InvocationParameters.from(
-                        LlmMonitoringAttributes.CONTEXT,
-                        new LlmMonitoringContext(LlmMonitoringAttributes.SCENARIO_TITLE_GENERATION, null, null)));
-        if (titleResult == null || !titleResult.isAccepted() || StrUtil.isBlank(titleResult.getTitle())) {
-            String reason = titleResult == null || titleResult.getReason() == null
-                    ? "无法识别应用需求"
-                    : titleResult.getReason().getDescription();
-            throw BusinessException.of(ResultCode.INVALID_PARAM, reason);
-        }
-
-        App app = App.builder()
-                .userId(userId)
-                .name(titleResult.getTitle())
-                .initPrompt(prompt)
-                .status(AppStatus.CREATING.name())
-                .deployStatus(AppDeployStatus.UNDEPLOYED.name())
-                .createdAt(LocalDateTime.now())
-                .build();
-        appService.save(app);
-
-        return CreateAppResponse.builder()
-                .appId(app.getId())
-                .name(app.getName())
-                .status(app.getStatus())
-                .build();
-    }
+//    @Transactional
+//    public CreateAppResponse createApp(Long userId, CreateAppRequest request) {
+//        String prompt = StrUtil.trim(request.getPrompt());
+//        // 由标题生成 AI 来对用户提示词进行初步筛选
+//        TitleGenerateResult titleResult = titleGenerateAiService.chat(
+//                prompt,
+//                InvocationParameters.from(
+//                        LlmMonitoringAttributes.CONTEXT,
+//                        new LlmMonitoringContext(LlmMonitoringAttributes.SCENARIO_TITLE_GENERATION, null, null)));
+//        if (titleResult == null || !titleResult.isAccepted() || StrUtil.isBlank(titleResult.getTitle())) {
+//            String reason = titleResult == null || titleResult.getReason() == null
+//                    ? "无法识别应用需求"
+//                    : titleResult.getReason().getDescription();
+//            throw BusinessException.of(ResultCode.INVALID_PARAM, reason);
+//        }
+//
+//        App app = App.builder()
+//                .userId(userId)
+//                .name(titleResult.getTitle())
+//                .initPrompt(prompt)
+//                .status(AppStatus.CREATING.name())
+//                .deployStatus(AppDeployStatus.UNDEPLOYED.name())
+//                .createdAt(LocalDateTime.now())
+//                .build();
+//        appService.save(app);
+//
+//        return CreateAppResponse.builder()
+//                .appId(app.getId())
+//                .name(app.getName())
+//                .status(app.getStatus())
+//                .build();
+//    }
 
     /**
      * 获取预览的静态资源
