@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.ymz.app.ai.codegen.workspace.CodeGenerationCommandRunner;
+import org.ymz.app.ai.monitoring.LlmMonitoringAttributes;
+import org.ymz.app.ai.monitoring.LlmMonitoringContext;
 import org.ymz.app.ai.title.TitleGenerateAssistant;
 import org.ymz.app.ai.title.TitleGenerateResult;
 import org.ymz.app.config.AppDevConfig;
@@ -19,18 +21,15 @@ import org.ymz.app.model.dto.app.CreateAppResponse;
 import org.ymz.app.model.dto.app.DeployAppResponse;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppTask;
-import org.ymz.app.model.enums.app.AppDeployStatus;
-import org.ymz.app.model.enums.app.AppStatus;
-import org.ymz.app.model.enums.app.AppTaskStatus;
-import org.ymz.app.model.enums.app.AppTaskStep;
-import org.ymz.app.model.enums.app.AppTaskType;
-import org.ymz.app.ai.monitoring.LlmMonitoringAttributes;
-import org.ymz.app.ai.monitoring.LlmMonitoringContext;
+import org.ymz.app.model.enums.UserRole;
+import org.ymz.app.model.enums.app.*;
+import org.ymz.app.security.AuthContext;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -57,6 +56,10 @@ public class AppOperationService {
     private final AppCoverCaptureService appCoverCaptureService;
     private final CodeGenerationCommandRunner commandRunner;
 
+    /*
+     * TODO： 要大改！
+     */
+
     @Transactional
     public CreateAppResponse createApp(Long userId, CreateAppRequest request) {
         String prompt = StrUtil.trim(request.getPrompt());
@@ -65,9 +68,7 @@ public class AppOperationService {
                 prompt,
                 InvocationParameters.from(
                         LlmMonitoringAttributes.CONTEXT,
-                        new LlmMonitoringContext(LlmMonitoringAttributes.SCENARIO_TITLE_GENERATION, null, null)
-                )
-        );
+                        new LlmMonitoringContext(LlmMonitoringAttributes.SCENARIO_TITLE_GENERATION, null, null)));
         if (titleResult == null || !titleResult.isAccepted() || StrUtil.isBlank(titleResult.getTitle())) {
             String reason = titleResult == null || titleResult.getReason() == null
                     ? "无法识别应用需求"
@@ -90,6 +91,41 @@ public class AppOperationService {
                 .name(app.getName())
                 .status(app.getStatus())
                 .build();
+    }
+
+    /**
+     * 获取预览的静态资源
+     * 仅有作者本人以及管理员能看到
+     */
+    public Path getPreviewFilePath(Long appId, String resourcePath, AuthContext authContext) {
+        App app = appService.getById(appId);
+        if (app == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND);
+        }
+        // 仅应用作者本人或管理员可以预览
+        if (!authContext.getUserId().equals(app.getUserId()) && !UserRole.ADMIN.equals(authContext.getUserRole())) {
+            throw BusinessException.of(ResultCode.NO_PERMISSION);
+        }
+
+        // 默认目录访问 index.html
+        if ("/".equals(resourcePath)) {
+            resourcePath = "/index.html";
+        }
+        Path previewRootPath = Paths.get(
+                System.getProperty("user.dir"),
+                "tmp",
+                "app-previews",
+                String.valueOf(appId)).normalize();
+        // 构建目标文件路径
+        Path targetPath = previewRootPath
+                // 去掉开头的 /
+                .resolve(resourcePath.substring(1))
+                .normalize();
+        // 防止路径穿越，即防止用户用 ../../ 访问预览目录外的文件
+        if (!targetPath.startsWith(previewRootPath)) {
+            throw BusinessException.of(ResultCode.INVALID_PARAM);
+        }
+        return targetPath;
     }
 
     public DeployAppResponse deployApp(Long userId, Long appId) {
@@ -144,8 +180,7 @@ public class AppOperationService {
                     deployTask.getId(),
                     workspacePath,
                     CodeGenerationCommandRunner.LogMode.SUMMARY,
-                    "build"
-            );
+                    "build");
             appTaskService.updateById(AppTask.builder()
                     .id(deployTask.getId())
                     .status(AppTaskStatus.RUNNING.name())
@@ -197,8 +232,7 @@ public class AppOperationService {
             AppTaskStatus status,
             String resultSummary,
             String errorMessage,
-            LocalDateTime finishedAt
-    ) {
+            LocalDateTime finishedAt) {
         appTaskService.updateById(AppTask.builder()
                 .id(deployTask.getId())
                 .status(status.name())
@@ -265,12 +299,10 @@ public class AppOperationService {
                 .where(APP_TASK.APP_ID.eq(appId))
                 .and(APP_TASK.TASK_TYPE.in(List.of(
                         AppTaskType.CREATE.name(),
-                        AppTaskType.ITERATE.name()
-                )))
+                        AppTaskType.ITERATE.name())))
                 .and(APP_TASK.STATUS.in(List.of(
                         AppTaskStatus.PENDING.name(),
-                        AppTaskStatus.RUNNING.name()
-                )));
+                        AppTaskStatus.RUNNING.name())));
         return appTaskService.count(query) > 0;
     }
 }
