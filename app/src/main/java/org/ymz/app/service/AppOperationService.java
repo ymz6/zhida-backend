@@ -8,7 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.ymz.app.ai.services.TitleGenerateAiService;
 import org.ymz.app.browser.WebPageScreenshotService;
+import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.dto.app.CreateAppRequest;
+import org.ymz.app.model.dto.app.EditAppRequest;
 import org.ymz.app.model.dto.app.TitleGenerateResult;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.enums.UserRole;
@@ -44,6 +46,7 @@ public class AppOperationService {
 
     private final TitleGenerateAiService titleGenerateAiService;
     private final AppService appService;
+    private final AppQueryService appQueryService;
     private final WebPageScreenshotService webPageScreenshotService;
     private final RustFSClient rustFSClient;
 
@@ -124,7 +127,26 @@ public class AppOperationService {
     /**
      * 编辑应用信息
      */
-//    public App
+    public AppVO editApp(AuthContext authContext, Long appId, EditAppRequest request) {
+        App app = appService.getById(appId);
+        if (app == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND);
+        }
+        String appName = request.getName().trim();
+        // 仅有应用作者或管理员可以编辑应用信息
+
+        if(!app.getUserId().equals(authContext.getUserId()) && !UserRole.ADMIN.equals(authContext.getUserRole())) {
+            throw BusinessException.of(ResultCode.NO_PERMISSION);
+        }
+
+        appService.updateById(
+                App.builder()
+                        .id(appId)
+                        .name(appName)
+                        .build()
+        );
+        return appQueryService.getApp(appId);
+    }
 
 
     /**
@@ -281,5 +303,6 @@ public class AppOperationService {
         }
 
     }
+
 
 }

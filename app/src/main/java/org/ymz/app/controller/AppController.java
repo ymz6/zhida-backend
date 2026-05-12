@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerMapping;
 import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.dto.app.CreateAppRequest;
+import org.ymz.app.model.dto.app.EditAppRequest;
 import org.ymz.app.model.dto.app.ListAppsRequest;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
@@ -66,6 +67,14 @@ public class AppController {
     public Response<Long> createApp(@RequestBody @Valid CreateAppRequest request) {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(appOperationService.createApp(authContext.getUserId(), request));
+    }
+
+    // 编辑应用信息
+    @PutMapping("/{appId}")
+    @Operation(operationId = "editApp")
+    public Response<AppVO> editApp(@PathVariable Long appId, @RequestBody @Valid EditAppRequest request) {
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appOperationService.editApp(authContext, appId, request));
     }
 
     // 预览应用 已经稳定
