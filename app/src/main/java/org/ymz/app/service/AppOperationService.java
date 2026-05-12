@@ -12,8 +12,10 @@ import org.ymz.app.browser.WebPageScreenshotService;
 import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.dto.app.CreateAppRequest;
 import org.ymz.app.model.dto.app.EditAppRequest;
+import org.ymz.app.model.dto.app.FileNode;
 import org.ymz.app.model.dto.app.TitleGenerateResult;
 import org.ymz.app.model.entity.App;
+import org.ymz.app.model.enums.app.FileNodeType;
 import org.ymz.app.model.enums.UserRole;
 import org.ymz.app.model.enums.oss.BucketType;
 import org.ymz.app.oss.RustFSClient;
@@ -31,6 +33,8 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -47,6 +51,11 @@ import static org.ymz.app.model.entity.table.AppTableDef.APP;
 public class AppOperationService {
 
     private static final String DEPLOY_HOSTNAME = "localhost";
+    private static final Set<String> PREVIEWABLE_CONTENT_TYPES = Set.of(
+            "application/json",
+            "application/javascript",
+            "application/xml",
+            "image/svg+xml");
 
     private final TitleGenerateAiService titleGenerateAiService;
     private final AppService appService;
@@ -83,7 +92,7 @@ public class AppOperationService {
         // 将项目模板（project-template/zhida-react-project）复制到应用工作区（tmp/app-workspace/{appId}）
         Long appId = app.getId();
         try {
-            log.debug("开始初始化应用{}的工作区",appId);
+            log.debug("开始初始化应用{}的工作区", appId);
             Path projectRootPath = Paths.get(System.getProperty("user.dir")).normalize();
             Path templatePath = projectRootPath.resolve("project-template").resolve("zhida-react-project").normalize();
             if (!Files.isDirectory(templatePath)) {
@@ -146,7 +155,7 @@ public class AppOperationService {
         String appName = request.getName().trim();
         // 仅有应用作者或管理员可以编辑应用信息
 
-        if(!app.getUserId().equals(authContext.getUserId()) && !UserRole.ADMIN.equals(authContext.getUserRole())) {
+        if (!app.getUserId().equals(authContext.getUserId()) && !UserRole.ADMIN.equals(authContext.getUserRole())) {
             throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
 
@@ -154,8 +163,7 @@ public class AppOperationService {
                 App.builder()
                         .id(appId)
                         .name(appName)
-                        .build()
-        );
+                        .build());
         return appQueryService.getApp(appId);
     }
 
@@ -178,7 +186,7 @@ public class AppOperationService {
         // 异步删除应用资源
         Thread.startVirtualThread(() -> {
             try {
-                log.debug("开始删除应用{}的相关资源",appId);
+                log.debug("开始删除应用{}的相关资源", appId);
                 Path projectRootPath = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
 
                 Path workspaceRootPath = projectRootPath.resolve("tmp").resolve("app-workspace").normalize();
@@ -188,7 +196,7 @@ public class AppOperationService {
                         .resolve(String.valueOf(appId))
                         .normalize();
                 if (workspacePath.startsWith(workspaceRootPath) && Files.exists(workspacePath)) {
-                    log.debug("开始删除应用{}的工作区文件",appId);
+                    log.debug("开始删除应用{}的工作区文件", appId);
                     try (Stream<Path> stream = Files.walk(workspacePath)) {
                         // 先删子文件和子目录，再删父目录，避免目录非空导致删除失败。
                         for (Path item : stream.sorted(Comparator.reverseOrder()).toList()) {
@@ -204,7 +212,7 @@ public class AppOperationService {
                         .resolve(String.valueOf(appId))
                         .normalize();
                 if (previewPath.startsWith(previewRootPath) && Files.exists(previewPath)) {
-                    log.debug("开始删除应用{}的预览文件",appId);
+                    log.debug("开始删除应用{}的预览文件", appId);
                     try (Stream<Path> stream = Files.walk(previewPath)) {
                         // 先删子文件和子目录，再删父目录，避免目录非空导致删除失败。
                         for (Path item : stream.sorted(Comparator.reverseOrder()).toList()) {
@@ -217,7 +225,7 @@ public class AppOperationService {
                     Path deployRootPath = projectRootPath.resolve("tmp").resolve("app-deploy").normalize();
                     Path deployPath = deployRootPath.resolve(app.getDeployKey()).normalize();
                     if (deployPath.startsWith(deployRootPath) && Files.exists(deployPath)) {
-                        log.debug("开始删除应用{}的部署文件",appId);
+                        log.debug("开始删除应用{}的部署文件", appId);
                         try (Stream<Path> stream = Files.walk(deployPath)) {
                             // 先删子文件和子目录，再删父目录，避免目录非空导致删除失败。
                             for (Path item : stream.sorted(Comparator.reverseOrder()).toList()) {
@@ -226,11 +234,109 @@ public class AppOperationService {
                         }
                     }
                 }
-                log.debug("应用{}的相关资源删除成功",appId);
+                log.debug("应用{}的相关资源删除成功", appId);
             } catch (Exception e) {
                 log.warn("应用资源异步清理失败: appId={}", appId, e);
             }
         });
+    }
+
+    /**
+     * 打开应用工作区文件或目录
+     */
+    public FileNode openAppFile(AuthContext authContext, Long appId, String path) {
+        App app = appService.getById(appId);
+        if (app == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");
+        }
+        // 文件树只能给应用作者或管理员预览，避免泄露其他用户源码。
+        if (!authContext.getUserId().equals(app.getUserId()) && !UserRole.ADMIN.equals(authContext.getUserRole())) {
+            throw BusinessException.of(ResultCode.NO_PERMISSION);
+        }
+
+        String relativePath = StrUtil.trimToEmpty(path);
+        Path workspaceRootPath = Paths.get(System.getProperty("user.dir"), "tmp", "app-workspace").normalize();
+        Path workspacePath = workspaceRootPath.resolve(String.valueOf(appId)).normalize();
+        if (!workspacePath.startsWith(workspaceRootPath) || !Files.isDirectory(workspacePath)) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "应用源码目录不存在");
+        }
+
+        Path targetPath = relativePath.isEmpty()
+                ? workspacePath
+                : workspacePath.resolve(relativePath).normalize();
+        // 所有用户输入路径都必须落在当前应用工作区内，防止 ../../ 访问外部文件。
+        if (!targetPath.startsWith(workspacePath)) {
+            throw BusinessException.of(ResultCode.INVALID_PARAM);
+        }
+        if (isIgnoredPath(targetPath, workspacePath)) {
+            throw BusinessException.of(ResultCode.INVALID_PARAM);
+        }
+        if (!Files.exists(targetPath)) {
+            throw BusinessException.of(ResultCode.NOT_FOUND);
+        }
+
+        try {
+            if (Files.isDirectory(targetPath)) {
+                // 打开目录时只返回当前层级，前端需要展开子目录时再请求一次接口。
+                try (Stream<Path> stream = Files.list(targetPath)) {
+                    List<FileNode> children = stream
+                            .filter(item -> {
+                                // 目录列表中隐藏依赖目录、构建产物和日志文件。
+                                return !isIgnoredPath(item, workspacePath);
+                            })
+                            .sorted(Comparator
+                                    // 展示顺序固定为目录在前、文件在后，同类按名称排序。
+                                    .<Path, Boolean>comparing(item -> !Files.isDirectory(item))
+                                    .thenComparing(item -> item.getFileName().toString(),
+                                            String.CASE_INSENSITIVE_ORDER))
+                            .map(item -> {
+                                String itemRelativePath = workspacePath.relativize(item).toString().replace('\\', '/');
+                                return FileNode.builder()
+                                        .title(item.getFileName().toString())
+                                        .path(itemRelativePath)
+                                        .type(Files.isDirectory(item) ? FileNodeType.DIRECTORY : FileNodeType.FILE)
+                                        .build();
+                            })
+                            .toList();
+                    return FileNode.builder()
+                            .title(relativePath.isEmpty() ? "/" : targetPath.getFileName().toString())
+                            .path(relativePath)
+                            .type(FileNodeType.DIRECTORY)
+                            .children(children)
+                            .build();
+                }
+            }
+
+            String contentType = Files.probeContentType(targetPath);
+            // 优先根据文件类型判断是否可预览；jsx 等源码文件可能识别不到类型，识别不到时交给 UTF-8 读取处理。
+            if (contentType != null
+                    && !contentType.startsWith("text/")
+                    && !PREVIEWABLE_CONTENT_TYPES.contains(contentType)) {
+                throw BusinessException.of(ResultCode.INVALID_PARAM, "暂不支持打开该文件");
+            }
+            // 只有真正打开文件时才读取内容，目录列表里的文件节点不携带 content。
+            return FileNode.builder()
+                    .title(targetPath.getFileName().toString())
+                    .path(relativePath)
+                    .type(FileNodeType.FILE)
+                    .content(Files.readString(targetPath, StandardCharsets.UTF_8))
+                    .build();
+        } catch (IOException e) {
+            throw BusinessException.of(ResultCode.SYSTEM_ERROR, "打开应用文件失败", e);
+        }
+    }
+
+    private boolean isIgnoredPath(Path path, Path workspacePath) {
+        Path relativePath = workspacePath.relativize(path);
+        for (Path name : relativePath) {
+            String itemName = name.toString();
+            if (StrUtil.equalsAny(itemName, "node_modules", "dist")
+                    || itemName.endsWith(".log")
+                    || itemName.startsWith("pnpm-debug.log")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -271,7 +377,8 @@ public class AppOperationService {
     /**
      * 下载应用源码压缩包
      */
-    public void downloadAppSourceCode(AuthContext authContext, Long appId, OutputStream outputStream) throws IOException {
+    public void downloadAppSourceCode(AuthContext authContext, Long appId, OutputStream outputStream)
+            throws IOException {
         App app = appService.getById(appId);
         if (app == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");

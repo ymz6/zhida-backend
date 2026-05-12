@@ -19,6 +19,7 @@ import org.springframework.web.servlet.HandlerMapping;
 import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.dto.app.CreateAppRequest;
 import org.ymz.app.model.dto.app.EditAppRequest;
+import org.ymz.app.model.dto.app.FileNode;
 import org.ymz.app.model.dto.app.ListAppsRequest;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
@@ -80,6 +81,14 @@ public class AppController {
         return Response.ok(appOperationService.editApp(authContext, appId, request));
     }
 
+    // 打开应用工作区文件或目录
+    @GetMapping("/{appId}/files/open")
+    @Operation(operationId = "openAppFile")
+    public Response<FileNode> openAppFile(@PathVariable Long appId, @RequestParam(required = false) String path) {
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appOperationService.openAppFile(authContext, appId, path));
+    }
+
     // 删除应用
     @DeleteMapping("/{appId}")
     @Operation(operationId = "deleteApp")
@@ -95,8 +104,8 @@ public class AppController {
     public ResponseEntity<StreamingResponseBody> downloadAppSourceCode(@PathVariable Long appId) {
         AuthContext authContext = AuthContextHolder.get();
         String filename = "zhida-app-" + appId + ".zip";
-        StreamingResponseBody responseBody = outputStream ->
-                appOperationService.downloadAppSourceCode(authContext, appId, outputStream);
+        StreamingResponseBody responseBody = outputStream -> appOperationService.downloadAppSourceCode(authContext,
+                appId, outputStream);
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/zip"))
@@ -150,7 +159,6 @@ public class AppController {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(appOperationService.deployApp(authContext.getUserId(), appId));
     }
-
 
     // 要重新设计
     // @PostMapping(value = "/{appId}/chat", produces =
