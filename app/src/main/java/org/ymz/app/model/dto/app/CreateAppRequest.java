@@ -1,4 +1,4 @@
-package org.ymz.app.model.dto;
+package org.ymz.app.model.dto.app;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

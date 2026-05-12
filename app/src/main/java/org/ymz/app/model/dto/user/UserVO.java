@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserInfo {
+public class UserVO {
     private Long id;
     private String account;
     private Integer role;

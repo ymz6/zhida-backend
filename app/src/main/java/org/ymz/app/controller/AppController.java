@@ -10,9 +10,13 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerMapping;
-import org.ymz.app.model.dto.CreateAppRequest;
+import org.ymz.app.model.dto.app.AppVO;
+import org.ymz.app.model.dto.app.CreateAppRequest;
+import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
 import org.ymz.app.security.LoginRequired;
@@ -42,20 +46,21 @@ public class AppController {
     private final AppOperationService appOperationService;
     private final AppQueryService appQueryService;
 
-//    @GetMapping("/mine")
-//    @Operation(operationId = "listMyApps")
-//    public Response<PageResult<AppSummary>> listMyApps(@Validated ListMyAppsRequest request) {
-//        AuthContext authContext = AuthContextHolder.get();
-//        return Response.ok(appQueryService.listMyApps(authContext.getUserId(), request));
-//    }
+    // 分页查询应用列表
+    @GetMapping
+    @Operation(operationId = "listApps")
+    public Response<PageResult<AppVO>> listApps(@Validated ListAppsRequest request) {
+        return Response.ok(appQueryService.listApps(request));
+    }
 
-//    @GetMapping("/{appId}")
-//    @Operation(operationId = "getApp")
-//    public Response<AppDetail> getApp(@PathVariable Long appId) {
-//        AuthContext authContext = AuthContextHolder.get();
-//        return Response.ok(appQueryService.getApp(authContext.getUserId(), appId));
-//    }
-    // 要重新设计
+    // 查询应用详情
+    @GetMapping("/{appId}")
+    @Operation(operationId = "getApp")
+    public Response<AppVO> getApp(@PathVariable Long appId) {
+        return Response.ok(appQueryService.getApp(appId));
+    }
+
+    // 创建应用 已经稳定
     @PostMapping
     @Operation(operationId = "createApp")
     public Response<Long> createApp(@RequestBody @Valid CreateAppRequest request) {

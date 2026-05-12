@@ -1,7 +1,23 @@
 package org.ymz.app.service;
 
+import com.mybatisflex.core.paginate.Page;
+import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.ymz.app.converter.AppConverter;
+import org.ymz.app.model.dto.app.AppVO;
+import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.page.PageResult;
+import org.ymz.app.model.entity.App;
+import org.ymz.app.model.entity.User;
+import org.ymz.app.web.exception.BusinessException;
+import org.ymz.app.web.response.ResultCode;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static org.ymz.app.model.entity.table.AppTableDef.APP;
 
 /**
  * 应用生成前端查询服务实现。
@@ -14,42 +30,42 @@ public class AppQueryService {
 
     private final AppService appService;
     private final UserService userService;
+    private final AppConverter appConverter;
 
-//    public PageResult<AppSummary> listMyApps(Long userId, ListMyAppsRequest request) {
-//        QueryColumn sortColumn = request.resolveSortColumn();
-//        QueryWrapper query = QueryWrapper.create()
-//                .select(APP.ALL_COLUMNS)
-//                .from(APP)
-//                .where(APP.USER_ID.eq(userId))
-//                .and(APP.STATUS.eq(request.getStatus(), If::hasText))
-//                .and(APP.DEPLOY_STATUS.eq(request.getDeployStatus(), If::hasText));
-//
-//        String keyword = StrUtil.trim(request.getKeyword());
-//        if (StrUtil.isNotBlank(keyword)) {
-//            query.and(new Brackets(APP.NAME.like(keyword).or(APP.INIT_PROMPT.like(keyword))));
-//        }
-//
-//        if (sortColumn == null) {
-//            query.orderBy(APP.CREATED_AT.desc());
-//        } else {
-//            query.orderBy(sortColumn, SortablePageQuery.SortDirection.ASC.equals(request.getSortOrder()));
-//        }
-//
-//        Page<App> page = appService.page(request.toPage(), query);
-//        AppAuthor author = toAppAuthor(userService.getById(userId));
-//        return PageResult.of(page, app -> {
-//            AppSummary summary = appConverter.toAppSummary(app);
-//            summary.setAuthor(author);
-//            return summary;
-//        });
-//    }
+    public PageResult<AppVO> listApps(ListAppsRequest request) {
+        // 先分页查询应用，再批量查询本页涉及的作者，最后用 MapStruct 组装 AppVO。
+        // 这样既保留 App 与 User 各自的转换逻辑，也避免列表页出现 N+1 次用户查询。
+        QueryWrapper query = QueryWrapper.create()
+                .select(APP.ALL_COLUMNS)
+                .from(APP)
+                .orderBy(APP.CREATED_AT.desc());
 
-//    public AppDetail getApp(Long userId, Long appId) {
-//        App app = getOwnedApp(userId, appId);
-//        AppDetail detail = appConverter.toAppDetail(app);
-//        detail.setAuthor(toAppAuthor(userService.getById(app.getUserId())));
-//        return detail;
-//    }
+        Page<App> page = appService.page(request.toPage(), query);
+        List<Long> userIds = page.getRecords().stream()
+                .map(App::getUserId)
+                .distinct()
+                .toList();
+        Map<Long, User> userMap = userIds.isEmpty()
+                ? Map.of()
+                : userService.listByIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+
+        return PageResult.of(page, app -> {
+            // 分页场景批量加载作者，避免每条应用单独查询用户。
+            User author = userMap.get(app.getUserId());
+            return appConverter.toAppVO(app, author);
+        });
+    }
+
+    public AppVO getApp(Long appId) {
+        App app = appService.getById(appId);
+        if (app == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");
+        }
+
+        User author = userService.getById(app.getUserId());
+        return appConverter.toAppVO(app, author);
+    }
 
 //    public CursorResult<AppChatMessageInfo> listAppMessages(
 //            Long userId,

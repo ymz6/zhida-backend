@@ -89,7 +89,7 @@ public class AuthService {
 
         return LoginResponse.builder()
                 .accessToken(accessToken)
-                .userInfo(userConverter.toUserInfo(user))
+                .userVO(userConverter.toUserVO(user))
                 .build();
     }
 

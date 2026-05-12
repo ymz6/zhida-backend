@@ -1,4 +1,4 @@
-package org.ymz.app.model.dto;
+package org.ymz.app.model.dto.app;
 
 import dev.langchain4j.model.output.structured.Description;
 import lombok.Data;

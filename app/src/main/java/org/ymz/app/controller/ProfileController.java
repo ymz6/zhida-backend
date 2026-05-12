@@ -8,7 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.ymz.app.model.dto.profile.UpdateProfileRequest;
-import org.ymz.app.model.dto.user.UserInfo;
+import org.ymz.app.model.dto.user.UserVO;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
 import org.ymz.app.security.LoginRequired;
@@ -29,21 +29,21 @@ public class ProfileController {
 
     @GetMapping
     @Operation(operationId = "getProfile")
-    public Response<UserInfo> getProfile() {
+    public Response<UserVO> getProfile() {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(profileService.getProfile(authContext.getUserId()));
     }
 
     @PutMapping
     @Operation(operationId = "updateProfile")
-    public Response<UserInfo> updateProfile(@RequestBody @Valid UpdateProfileRequest request) {
+    public Response<UserVO> updateProfile(@RequestBody @Valid UpdateProfileRequest request) {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(profileService.updateProfile(authContext.getUserId(), request));
     }
 
     @Operation(operationId = "changeAvatar")
     @PutMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Response<UserInfo> changeAvatar(@RequestParam("file") MultipartFile file) {
+    public Response<UserVO> changeAvatar(@RequestParam("file") MultipartFile file) {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(profileService.changeAvatar(authContext.getUserId(), file));
     }

@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.ymz.app.model.dto.admin.ListUsersRequest;
 import org.ymz.app.model.dto.page.PageResult;
-import org.ymz.app.model.dto.user.UserInfo;
+import org.ymz.app.model.dto.user.UserVO;
 import org.ymz.app.security.AdminRequired;
 import org.ymz.app.service.AdminUserService;
 import org.ymz.app.web.response.Response;
@@ -28,7 +28,7 @@ public class AdminUserController {
 
     @Operation(operationId = "listUsers")
     @GetMapping
-    public Response<PageResult<UserInfo>> listUsers(@Validated ListUsersRequest request) {
+    public Response<PageResult<UserVO>> listUsers(@Validated ListUsersRequest request) {
         return Response.ok(adminUserService.queryUserList(request));
     }
 }

@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.ymz.app.model.dto.user.UserInfo;
+import org.ymz.app.model.dto.user.UserVO;
 
 /**
  *
@@ -16,5 +16,5 @@ import org.ymz.app.model.dto.user.UserInfo;
 @AllArgsConstructor
 public class LoginResponse {
     private String accessToken;
-    private UserInfo userInfo;
+    private UserVO userVO;
 }

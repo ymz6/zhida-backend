@@ -2,7 +2,7 @@ package org.ymz.app.ai.services;
 
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
-import org.ymz.app.model.dto.TitleGenerateResult;
+import org.ymz.app.model.dto.app.TitleGenerateResult;
 
 /**
  * 应用标题生成助手

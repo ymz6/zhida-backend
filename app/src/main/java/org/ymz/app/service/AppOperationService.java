@@ -8,8 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.ymz.app.ai.services.TitleGenerateAiService;
 import org.ymz.app.browser.WebPageScreenshotService;
-import org.ymz.app.model.dto.CreateAppRequest;
-import org.ymz.app.model.dto.TitleGenerateResult;
+import org.ymz.app.model.dto.app.CreateAppRequest;
+import org.ymz.app.model.dto.app.TitleGenerateResult;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.enums.UserRole;
 import org.ymz.app.model.enums.oss.BucketType;
@@ -120,6 +120,12 @@ public class AppOperationService {
 
         return app.getId();
     }
+
+    /**
+     * 编辑应用信息
+     */
+//    public App
+
 
     /**
      * 获取预览的静态资源

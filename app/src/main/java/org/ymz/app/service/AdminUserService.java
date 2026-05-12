@@ -10,7 +10,7 @@ import org.ymz.app.converter.UserConverter;
 import org.ymz.app.model.dto.admin.ListUsersRequest;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.dto.page.SortablePageQuery;
-import org.ymz.app.model.dto.user.UserInfo;
+import org.ymz.app.model.dto.user.UserVO;
 import org.ymz.app.model.entity.User;
 import static org.ymz.app.model.entity.table.UserTableDef.USER;
 
@@ -24,7 +24,7 @@ public class AdminUserService {
     private final UserService userService;
     private final UserConverter userConverter;
 
-    public PageResult<UserInfo> queryUserList(ListUsersRequest request) {
+    public PageResult<UserVO> queryUserList(ListUsersRequest request) {
         QueryColumn sortColumn = request.resolveSortColumn();
 
         QueryWrapper query = QueryWrapper.create()
@@ -41,6 +41,6 @@ public class AdminUserService {
         }
 
         Page<User> page = userService.page(request.toPage(), query);
-        return PageResult.of(page, userConverter::toUserInfo);
+        return PageResult.of(page, userConverter::toUserVO);
     }
 }

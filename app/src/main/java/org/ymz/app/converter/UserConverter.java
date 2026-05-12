@@ -4,7 +4,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 import org.ymz.app.model.enums.UserRole;
-import org.ymz.app.model.dto.user.UserInfo;
+import org.ymz.app.model.dto.user.UserVO;
 import org.ymz.app.model.entity.User;
 
 
@@ -17,10 +17,10 @@ import org.ymz.app.model.entity.User;
 public interface UserConverter {
 
     /**
-     * User 转 UserInfo（不包含 password 字段）
+     * User 转 UserVO（不包含 password 字段）
      */
     @Mapping(target = "roleText", expression = "java(toRoleText(user.getRole()))")
-    UserInfo toUserInfo(User user);
+    UserVO toUserVO(User user);
 
     default String toRoleText(Integer roleCode) {
         UserRole role = UserRole.fromCode(roleCode);

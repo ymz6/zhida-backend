@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.ymz.app.converter.UserConverter;
 import org.ymz.app.model.dto.profile.UpdateProfileRequest;
-import org.ymz.app.model.dto.user.UserInfo;
+import org.ymz.app.model.dto.user.UserVO;
 import org.ymz.app.model.entity.User;
 import org.ymz.app.model.enums.oss.BucketType;
 import org.ymz.app.oss.RustFSClient;
@@ -44,15 +44,15 @@ public class ProfileService {
     private final UserConverter userConverter;
     private final RustFSClient rustFSClient;
 
-    public UserInfo getProfile(Long userId) {
+    public UserVO getProfile(Long userId) {
         User user = userService.getById(userId);
         if (user == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "用户不存在");
         }
-        return userConverter.toUserInfo(user);
+        return userConverter.toUserVO(user);
     }
 
-    public UserInfo updateProfile(Long userId, UpdateProfileRequest request) {
+    public UserVO updateProfile(Long userId, UpdateProfileRequest request) {
         User user = userService.getById(userId);
         if (user == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "用户不存在");
@@ -67,10 +67,10 @@ public class ProfileService {
         if (!userService.updateById(userToUpdate)) {
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, "更新个人信息失败");
         }
-        return userConverter.toUserInfo(userService.getById(userId));
+        return userConverter.toUserVO(userService.getById(userId));
     }
 
-    public UserInfo changeAvatar(Long userId, MultipartFile file) {
+    public UserVO changeAvatar(Long userId, MultipartFile file) {
         User user = userService.getById(userId);
         if (user == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "用户不存在");
@@ -140,6 +140,6 @@ public class ProfileService {
             }
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, "更新个人头像失败");
         }
-        return userConverter.toUserInfo(userService.getById(userId));
+        return userConverter.toUserVO(userService.getById(userId));
     }
 }
