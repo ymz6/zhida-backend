@@ -7,11 +7,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.web.servlet.HandlerMapping;
 import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.dto.app.CreateAppRequest;
@@ -84,6 +87,24 @@ public class AppController {
         AuthContext authContext = AuthContextHolder.get();
         appOperationService.deleteApp(authContext, appId);
         return Response.ok();
+    }
+
+    // 下载应用源码压缩包
+    @GetMapping("/{appId}/download")
+    @Operation(operationId = "downloadAppSourceCode")
+    public ResponseEntity<StreamingResponseBody> downloadAppSourceCode(@PathVariable Long appId) {
+        AuthContext authContext = AuthContextHolder.get();
+        String filename = "zhida-app-" + appId + ".zip";
+        StreamingResponseBody responseBody = outputStream ->
+                appOperationService.downloadAppSourceCode(authContext, appId, outputStream);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(filename)
+                        .build()
+                        .toString())
+                .body(responseBody);
     }
 
     // 预览应用 已经稳定

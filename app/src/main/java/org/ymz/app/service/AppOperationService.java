@@ -3,6 +3,7 @@ package org.ymz.app.service;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.core.util.ZipUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,9 @@ import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -262,6 +266,34 @@ public class AppOperationService {
             throw BusinessException.of(ResultCode.INVALID_PARAM);
         }
         return targetPath;
+    }
+
+    /**
+     * 下载应用源码压缩包
+     */
+    public void downloadAppSourceCode(AuthContext authContext, Long appId, OutputStream outputStream) throws IOException {
+        App app = appService.getById(appId);
+        if (app == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");
+        }
+        if (!authContext.getUserId().equals(app.getUserId()) && !UserRole.ADMIN.equals(authContext.getUserRole())) {
+            throw BusinessException.of(ResultCode.NO_PERMISSION);
+        }
+
+        Path workspaceRootPath = Paths.get(System.getProperty("user.dir"), "tmp", "app-workspace").normalize();
+        Path workspacePath = workspaceRootPath.resolve(String.valueOf(appId)).normalize();
+        if (!workspacePath.startsWith(workspaceRootPath) || !Files.isDirectory(workspacePath)) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "应用源码目录不存在");
+        }
+
+        ZipUtil.zip(outputStream, StandardCharsets.UTF_8, false, file -> {
+            String fileName = file.getName();
+            // 跳过项目依赖、构建产物和日志文件
+            return !("node_modules".equals(fileName)
+                    || "dist".equals(fileName)
+                    || fileName.endsWith(".log")
+                    || fileName.startsWith("pnpm-debug.log"));
+        }, workspacePath.toFile());
     }
 
     /**
