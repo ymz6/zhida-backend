@@ -71,10 +71,15 @@ public class AppOperationService {
                 .initPrompt(initPrompt)
                 .userId(userId)
                 .build();
-        appService.save(app);
+        boolean ok = appService.save(app);
+        if (!ok) {
+            throw BusinessException.of(ResultCode.SYSTEM_ERROR, "应用创建失败");
+        }
         // 初始化应用工作区
         // 将项目模板（project-template/zhida-react-project）复制到应用工作区（tmp/app-workspace/{appId}）
+        Long appId = app.getId();
         try {
+            log.debug("开始初始化应用{}的工作区",appId);
             Path projectRootPath = Paths.get(System.getProperty("user.dir")).normalize();
             Path templatePath = projectRootPath.resolve("project-template").resolve("zhida-react-project").normalize();
             if (!Files.isDirectory(templatePath)) {
@@ -84,10 +89,11 @@ public class AppOperationService {
             Path workspacePath = projectRootPath
                     .resolve("tmp")
                     .resolve("app-workspace")
-                    .resolve(String.valueOf(app.getId()))
+                    .resolve(String.valueOf(appId))
                     .normalize();
 
             try (Stream<Path> stream = Files.walk(templatePath)) {
+                log.debug("复制项目模板中...");
                 for (Path sourceItem : stream.toList()) {
                     // 保留模板内部目录结构，复制成当前应用独立工作区。
                     Path targetItem = workspacePath.resolve(templatePath.relativize(sourceItem)).normalize();
@@ -101,6 +107,7 @@ public class AppOperationService {
             }
 
             // 安装项目依赖
+            log.debug("依赖安装中...");
             String pnpm = System.getProperty("os.name").toLowerCase().contains("win") ? "pnpm.cmd" : "pnpm";
             Process process = new ProcessBuilder(pnpm, "install")
                     .directory(workspacePath.toFile())
@@ -117,11 +124,11 @@ public class AppOperationService {
             }
         } catch (Exception e) {
             // TODO 毕设演示场景下工作区初始化失败概率较低，暂不做应用记录回滚；后续可补充失败后的工作区清理和数据库记录回滚。
-            log.warn("应用工作区初始化失败: appId={}", app.getId(), e);
+            log.warn("应用工作区初始化失败: appId={}", appId, e);
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, "应用工作区初始化失败");
         }
-
-        return app.getId();
+        log.debug("应用{}工作区初始化完成", appId);
+        return appId;
     }
 
     /**
@@ -148,6 +155,79 @@ public class AppOperationService {
         return appQueryService.getApp(appId);
     }
 
+    /**
+     * 删除应用
+     */
+    public void deleteApp(AuthContext authContext, Long appId) {
+        App app = appService.getById(appId);
+        if (app == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND);
+        }
+        if (!app.getUserId().equals(authContext.getUserId()) && !UserRole.ADMIN.equals(authContext.getUserRole())) {
+            throw BusinessException.of(ResultCode.NO_PERMISSION);
+        }
+        // 先删除数据库记录，成功后再去异步清理当前应用关联资源（工作区、预览文件、部署文件）
+        boolean ok = appService.removeById(appId);
+        if (!ok) {
+            throw BusinessException.of(ResultCode.SYSTEM_ERROR, "应用删除失败");
+        }
+        // 异步删除应用资源
+        Thread.startVirtualThread(() -> {
+            try {
+                log.debug("开始删除应用{}的相关资源",appId);
+                Path projectRootPath = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+
+                Path workspaceRootPath = projectRootPath.resolve("tmp").resolve("app-workspace").normalize();
+                Path workspacePath = projectRootPath
+                        .resolve("tmp")
+                        .resolve("app-workspace")
+                        .resolve(String.valueOf(appId))
+                        .normalize();
+                if (workspacePath.startsWith(workspaceRootPath) && Files.exists(workspacePath)) {
+                    log.debug("开始删除应用{}的工作区文件",appId);
+                    try (Stream<Path> stream = Files.walk(workspacePath)) {
+                        // 先删子文件和子目录，再删父目录，避免目录非空导致删除失败。
+                        for (Path item : stream.sorted(Comparator.reverseOrder()).toList()) {
+                            Files.deleteIfExists(item);
+                        }
+                    }
+                }
+
+                Path previewRootPath = projectRootPath.resolve("tmp").resolve("app-previews").normalize();
+                Path previewPath = projectRootPath
+                        .resolve("tmp")
+                        .resolve("app-previews")
+                        .resolve(String.valueOf(appId))
+                        .normalize();
+                if (previewPath.startsWith(previewRootPath) && Files.exists(previewPath)) {
+                    log.debug("开始删除应用{}的预览文件",appId);
+                    try (Stream<Path> stream = Files.walk(previewPath)) {
+                        // 先删子文件和子目录，再删父目录，避免目录非空导致删除失败。
+                        for (Path item : stream.sorted(Comparator.reverseOrder()).toList()) {
+                            Files.deleteIfExists(item);
+                        }
+                    }
+                }
+
+                if (StrUtil.isNotBlank(app.getDeployKey())) {
+                    Path deployRootPath = projectRootPath.resolve("tmp").resolve("app-deploy").normalize();
+                    Path deployPath = deployRootPath.resolve(app.getDeployKey()).normalize();
+                    if (deployPath.startsWith(deployRootPath) && Files.exists(deployPath)) {
+                        log.debug("开始删除应用{}的部署文件",appId);
+                        try (Stream<Path> stream = Files.walk(deployPath)) {
+                            // 先删子文件和子目录，再删父目录，避免目录非空导致删除失败。
+                            for (Path item : stream.sorted(Comparator.reverseOrder()).toList()) {
+                                Files.deleteIfExists(item);
+                            }
+                        }
+                    }
+                }
+                log.debug("应用{}的相关资源删除成功",appId);
+            } catch (Exception e) {
+                log.warn("应用资源异步清理失败: appId={}", appId, e);
+            }
+        });
+    }
 
     /**
      * 获取预览的静态资源
@@ -303,6 +383,5 @@ public class AppOperationService {
         }
 
     }
-
 
 }

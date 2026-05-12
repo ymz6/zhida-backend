@@ -77,6 +77,15 @@ public class AppController {
         return Response.ok(appOperationService.editApp(authContext, appId, request));
     }
 
+    // 删除应用
+    @DeleteMapping("/{appId}")
+    @Operation(operationId = "deleteApp")
+    public Response<Void> deleteApp(@PathVariable Long appId) {
+        AuthContext authContext = AuthContextHolder.get();
+        appOperationService.deleteApp(authContext, appId);
+        return Response.ok();
+    }
+
     // 预览应用 已经稳定
     @GetMapping("/preview/{appId}/**")
     @Operation(operationId = "previewApp")
