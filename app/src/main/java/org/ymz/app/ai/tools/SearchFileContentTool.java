@@ -47,6 +47,25 @@ public class SearchFileContentTool implements BaseTool {
         return "搜索文件内容";
     }
 
+    @Override
+    public String formatRequest(JSONObject arguments) {
+        return "\n\n【选择工具】搜索文件内容：`%s`\n".formatted(arguments.getStr("keyword", ""));
+    }
+
+    @Override
+    public String formatResponse(JSONObject arguments, String result) {
+        if ("未找到匹配内容".equals(result)) {
+            return "\n【工具调用结果】%s\n\n".formatted(result);
+        }
+
+        return """
+                \n【工具调用结果】找到 %d 处匹配内容：
+                ```text
+                %s
+                ```
+                \n""".formatted(result.lines().count(), result);
+    }
+
     @Tool("根据关键词搜索文本文件内容")
     public String searchFilesByContent(@P("文件内容关键词，例如：Submit、useState、className") String keyword, @ToolMemoryId Long appId) {
         log.debug("AI 调用搜索文件内容工具， 请求参数：keyword={}, appId={}", keyword, appId);
@@ -90,7 +109,7 @@ public class SearchFileContentTool implements BaseTool {
                             }
                         }
                     } catch (IOException ignored) {
-                        // 读取失败的文件按非文本文件跳过，不影响其它源码文件搜索。
+                        // 非 UTF-8 文本文件（如 svg 中混入二进制）跳过，不影响其它源码文件搜索。
                     }
                     return FileVisitResult.CONTINUE;
                 }
@@ -105,9 +124,9 @@ public class SearchFileContentTool implements BaseTool {
         }
     }
 
-    @Override
-    public String formatResponse(JSONObject arguments) {
-        String keyword = arguments.getStr("keyword", "");
-        return "\n\n[搜索文件内容] " + keyword + "\n\n";
-    }
+//    @Override
+//    public String formatResponse(JSONObject arguments) {
+//        String keyword = arguments.getStr("keyword", "");
+//        return "\n\n[搜索文件内容] " + keyword + "\n\n";
+//    }
 }

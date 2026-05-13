@@ -50,8 +50,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.bitbucket.cowwoc</groupId>
-            <artifactId>diff-match-patch</artifactId>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
         </dependency>
 
         <dependency>

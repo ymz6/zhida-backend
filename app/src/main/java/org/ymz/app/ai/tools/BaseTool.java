@@ -22,13 +22,20 @@ public interface BaseTool {
 
     /**
      * 格式化工具请求内容
+     * 
+     * @param arguments 请求参数
      */
     default String formatRequest(JSONObject arguments) {
-        return String.format("\n\n[选择工具] %s\n\n", displayName());
+        return "\n\n【选择工具】%s\n".formatted(displayName());
     }
 
     /**
-     * 格式化工具响应内容
+     * 格式化工具成功调用后的响应内容
+     * 
+     * @param arguments 请求时的参数
+     * @param result    工具调用结果
      */
-    String formatResponse(JSONObject arguments);
+    default String formatResponse(JSONObject arguments, String result) {
+        return "\n【工具调用结果】%s\n\n".formatted(result);
+    }
 }

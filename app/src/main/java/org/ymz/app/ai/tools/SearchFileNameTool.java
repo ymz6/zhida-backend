@@ -11,15 +11,11 @@ import org.springframework.stereotype.Component;
 import org.ymz.app.config.AppPathProperties;
 
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.PathMatcher;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -46,6 +42,25 @@ public class SearchFileNameTool implements BaseTool {
         return "搜索文件名";
     }
 
+    @Override
+    public String formatRequest(JSONObject arguments) {
+        return "\n\n【选择工具】搜索文件名：`%s`\n".formatted(arguments.getStr("keyword", ""));
+    }
+
+    @Override
+    public String formatResponse(JSONObject arguments, String result) {
+        if ("未找到匹配文件".equals(result)) {
+            return "\n【工具调用结果】%s\n\n".formatted(result);
+        }
+
+        return """
+                \n【工具调用结果】找到 %d 个匹配文件：
+                ```text
+                %s
+                ```
+                \n""".formatted(result.lines().count(), result);
+    }
+
     @Tool("根据关键词模糊搜索文件名")
     public String searchFilesByName(@P("文件名关键词，例如：Button、App、style") String keyword, @ToolMemoryId Long appId) {
         log.debug("AI 调用搜索文件名工具， 请求参数：keyword={}, appId={}", keyword, appId);
@@ -66,12 +81,11 @@ public class SearchFileNameTool implements BaseTool {
             }
 
             List<String> results = new ArrayList<>();
-            PathMatcher matcher = sourcePath.getFileSystem()
-                    .getPathMatcher("regex:(?i).*" + Pattern.quote(keyword.trim()) + ".*");
+            String lowerKeyword = keyword.trim().toLowerCase(Locale.ROOT);
             Files.walkFileTree(sourcePath, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (matcher.matches(file.getFileName())) {
+                    if (file.getFileName().toString().toLowerCase(Locale.ROOT).contains(lowerKeyword)) {
                         results.add(sourcePath.relativize(file).toString().replace("\\", "/"));
                     }
                     return results.size() >= MAX_RESULTS ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
@@ -87,9 +101,9 @@ public class SearchFileNameTool implements BaseTool {
         }
     }
 
-    @Override
-    public String formatResponse(JSONObject arguments) {
-        String keyword = arguments.getStr("keyword", "");
-        return "\n\n[搜索文件名] " + keyword + "\n\n";
-    }
+//    @Override
+//    public String formatResponse(JSONObject arguments) {
+//        String keyword = arguments.getStr("keyword", "");
+//        return "\n\n[搜索文件名] " + keyword + "\n\n";
+//    }
 }

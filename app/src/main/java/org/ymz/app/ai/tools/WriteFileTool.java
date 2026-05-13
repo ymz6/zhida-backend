@@ -93,13 +93,21 @@ public class WriteFileTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        String relativeFilePath = arguments.getStr("relativeFilePath", "");
-        return "\n\n[选择工具] 写文件：" + relativeFilePath + "\n\n";
+        return "\n\n【选择工具】写文件：`%s`\n".formatted(arguments.getStr("relativeFilePath", ""));
     }
 
     @Override
-    public String formatResponse(JSONObject arguments) {
-        String relativeFilePath = arguments.getStr("relativeFilePath", "");
-        return "\n\n[写文件] " + relativeFilePath + "\n\n";
+    public String formatResponse(JSONObject arguments, String result) {
+        String content = arguments.getStr("content", "");
+        return "\n【工具调用结果】文件 `%s` 写入成功（%d 行，%d 字符）\n\n".formatted(
+                arguments.getStr("relativeFilePath", ""),
+                content.lines().count(),
+                content.length());
     }
+
+//    @Override
+//    public String formatResponse(JSONObject arguments) {
+//        String relativeFilePath = arguments.getStr("relativeFilePath", "");
+//        return "\n\n[写文件] " + relativeFilePath + "\n\n";
+//    }
 }

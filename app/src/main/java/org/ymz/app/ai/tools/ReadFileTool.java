@@ -47,6 +47,20 @@ public class ReadFileTool implements BaseTool {
         return "读取文件";
     }
 
+    @Override
+    public String formatRequest(JSONObject arguments) {
+        return "\n\n【选择工具】读取文件：`%s`\n".formatted(arguments.getStr("relativeFilePath", ""));
+    }
+
+    @Override
+    public String formatResponse(JSONObject arguments, String result) {
+        // 读取结果只展示摘要，避免把完整文件内容刷进聊天记录。
+        return "\n【工具调用结果】已读取文件：`%s`（%d 行，%d 字符）\n\n".formatted(
+                arguments.getStr("relativeFilePath", ""),
+                result.lines().count(),
+                result.length());
+    }
+
     @Tool("读取文本文件内容")
     public String readFile(@P("相对源码根目录，例如：App.jsx、components/Button.jsx") String relativeFilePath, @ToolMemoryId Long appId) {
         log.debug("AI 调用读取文件工具， 请求参数：relativeFilePath={}, appId={}", relativeFilePath, appId);
@@ -96,9 +110,9 @@ public class ReadFileTool implements BaseTool {
         }
     }
 
-    @Override
-    public String formatResponse(JSONObject arguments) {
-        String relativeFilePath = arguments.getStr("relativeFilePath", "");
-        return "\n\n[读取文件] " + relativeFilePath + "\n\n";
-    }
+//    @Override
+//    public String formatResponse(JSONObject arguments) {
+//        String relativeFilePath = arguments.getStr("relativeFilePath", "");
+//        return "\n\n[读取文件] " + relativeFilePath + "\n\n";
+//    }
 }

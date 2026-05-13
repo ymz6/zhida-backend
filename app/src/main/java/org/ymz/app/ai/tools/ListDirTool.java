@@ -89,8 +89,27 @@ public class ListDirTool implements BaseTool{
     }
 
     @Override
-    public String formatResponse(JSONObject arguments) {
-        String relativeDirectoryPath = arguments.getStr("relativeDirectoryPath", "");
-        return "\n\n[列目录] " + relativeDirectoryPath + "\n\n";
+    public String formatRequest(JSONObject arguments) {
+        return "\n\n【选择工具】列目录：`%s`\n".formatted(arguments.getStr("relativeDirectoryPath", ""));
     }
+
+    @Override
+    public String formatResponse(JSONObject arguments, String result) {
+        if ("目录为空".equals(result)) {
+            return "\n【工具调用结果】目录 `%s` 为空\n\n".formatted(arguments.getStr("relativeDirectoryPath", ""));
+        }
+
+        return """
+                \n【工具调用结果】目录 `%s` 包含 %d 项：
+                ```text
+                %s
+                ```
+                \n""".formatted(arguments.getStr("relativeDirectoryPath", ""), result.lines().count(), result);
+    }
+
+//    @Override
+//    public String formatResponse(JSONObject arguments) {
+//        String relativeDirectoryPath = arguments.getStr("relativeDirectoryPath", "");
+//        return "\n\n[列目录] " + relativeDirectoryPath + "\n\n";
+//    }
 }
