@@ -5,8 +5,10 @@ import cn.hutool.json.JSONObject;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.ymz.app.config.AppPathProperties;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -14,7 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -29,9 +30,12 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class SearchFileContentTool implements BaseTool {
 
     private static final int MAX_RESULTS = 50;
+
+    private final AppPathProperties appPathProperties;
 
     @Override
     public String toolName() {
@@ -53,7 +57,11 @@ public class SearchFileContentTool implements BaseTool {
             }
 
             // 文件搜索限定在虚拟源码根目录内，避免 AI 接触工程底座文件。
-            Path sourcePath = Paths.get(System.getProperty("user.dir"), "tmp", "app-workspace", String.valueOf(appId), "src").normalize();
+            Path sourcePath = appPathProperties.getTmpDir()
+                    .resolve("app-workspace")
+                    .resolve(String.valueOf(appId))
+                    .resolve("src")
+                    .normalize();
             if (!Files.exists(sourcePath) || !Files.isDirectory(sourcePath)) {
                 log.warn("AI 调用搜索文件内容工具失败");
                 return "搜索文件内容失败: " + keyword + ", 错误: 源码目录不存在";

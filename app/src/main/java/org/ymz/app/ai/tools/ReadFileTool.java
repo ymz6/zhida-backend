@@ -6,8 +6,10 @@ import cn.hutool.json.JSONObject;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.ymz.app.config.AppPathProperties;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +26,10 @@ import java.util.Set;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ReadFileTool implements BaseTool {
+
+    private final AppPathProperties appPathProperties;
 
     private static final Set<String> TEXT_CONTENT_TYPES = Set.of(
             "application/json",
@@ -52,7 +57,11 @@ public class ReadFileTool implements BaseTool {
             }
 
             String normalizedRelativePath = FileUtil.normalize(relativeFilePath.trim());
-            Path sourceRoot = Paths.get(System.getProperty("user.dir"), "tmp", "app-workspace", String.valueOf(appId), "src").normalize();
+            Path sourceRoot = appPathProperties.getTmpDir()
+                    .resolve("app-workspace")
+                    .resolve(String.valueOf(appId))
+                    .resolve("src")
+                    .normalize();
             Path targetPath = sourceRoot.resolve(Paths.get(normalizedRelativePath)).normalize();
             // 最终路径必须仍落在 src 内，避免 AI 访问工作区外文件。
             if (!targetPath.startsWith(sourceRoot)) {

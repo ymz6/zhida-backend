@@ -6,8 +6,10 @@ import cn.hutool.json.JSONObject;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.ymz.app.config.AppPathProperties;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +26,10 @@ import java.nio.file.Paths;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class WriteFileTool implements BaseTool {
+
+    private final AppPathProperties appPathProperties;
 
     // 警告提示词
     private static final String PROTECTED_WRITE_WARNING = """
@@ -39,8 +44,8 @@ public class WriteFileTool implements BaseTool {
         return "writeFile";
     }
 
-    @Tool("写入文件")
-    public String writeFile(@P("相对源码根目录，例如：pages/Home.jsx、components/Button.jsx") String relativeFilePath, @P("要写入文件的内容") String content, @ToolMemoryId Long appId) {
+    @Tool("创建新文件或覆盖整个文件内容；当需要替换文件大部分或全部内容时使用")
+    public String writeFile(@P("相对源码根目录，例如：pages/Home.jsx、components/Button.jsx") String relativeFilePath, @P("完整文件内容，会覆盖目标文件原有内容") String content, @ToolMemoryId Long appId) {
         log.debug("AI 调用写入文件工具， 请求参数：relativeFilePath={}, contentLength={}, appId={}", relativeFilePath, content == null ? 0 : content.length(), appId);
         try {
             if (StrUtil.isBlank(relativeFilePath) || appId == null) {
@@ -49,7 +54,11 @@ public class WriteFileTool implements BaseTool {
             }
 
             String normalizedRelativePath = FileUtil.normalize(relativeFilePath.trim());
-            Path sourceRoot = Paths.get(System.getProperty("user.dir"), "tmp", "app-workspace", String.valueOf(appId), "src").normalize();
+            Path sourceRoot = appPathProperties.getTmpDir()
+                    .resolve("app-workspace")
+                    .resolve(String.valueOf(appId))
+                    .resolve("src")
+                    .normalize();
             Path targetPath = sourceRoot.resolve(Paths.get(normalizedRelativePath)).normalize();
             // 最终路径必须仍落在 src 内，避免 AI 访问工作区外文件。
             if (!targetPath.startsWith(sourceRoot)) {

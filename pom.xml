@@ -34,6 +34,7 @@
         <selenium.version>4.33.0</selenium.version>
         <webdrivermanager.version>6.1.0</webdrivermanager.version>
         <langchain4j.version>1.13.0-beta23</langchain4j.version>
+        <diff-match-patch.version>1.2</diff-match-patch.version>
     </properties>
 
     <dependencyManagement>
@@ -48,6 +49,12 @@
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-all</artifactId>
                 <version>${hutool.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.bitbucket.cowwoc</groupId>
+                <artifactId>diff-match-patch</artifactId>
+                <version>${diff-match-patch.version}</version>
             </dependency>
 
             <dependency>
@@ -129,7 +136,7 @@
             </dependency>
             <dependency>
                 <groupId>dev.langchain4j</groupId>
-                <artifactId>langchain4j-community-redis</artifactId>
+                <artifactId>langchain4j-community-redis-spring-boot-starter</artifactId>
                 <version>${langchain4j.version}</version>
             </dependency>
         </dependencies>

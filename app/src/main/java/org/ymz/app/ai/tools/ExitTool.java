@@ -3,15 +3,16 @@ package org.ymz.app.ai.tools;
 import cn.hutool.json.JSONObject;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.ymz.app.config.AppPathProperties;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
@@ -25,7 +26,10 @@ import java.util.stream.Stream;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ExitTool implements BaseTool {
+    private final AppPathProperties appPathProperties;
+
     @Override
     public String toolName() {
         return "exit";
@@ -39,7 +43,10 @@ public class ExitTool implements BaseTool {
     @Tool("任务完成时调用，提交系统验收；通过后结束，失败则修复后重试")
     public String exit(@ToolMemoryId Long appId) {
         log.debug("AI 调用退出工具， 请求参数：appId={}，系统验收中...", appId);
-        Path workspacePath = Paths.get(System.getProperty("user.dir"), "tmp", "app-workspace", String.valueOf(appId)).normalize();
+        Path workspacePath = appPathProperties.getTmpDir()
+                .resolve("app-workspace")
+                .resolve(String.valueOf(appId))
+                .normalize();
 
         String pnpm = System.getProperty("os.name").toLowerCase().contains("win") ? "pnpm.cmd" : "pnpm";
         String[][] commands = {
@@ -93,7 +100,10 @@ public class ExitTool implements BaseTool {
 
         try {
             Path distPath = workspacePath.resolve("dist").normalize();
-            Path previewPath = Paths.get(System.getProperty("user.dir"), "tmp", "app-previews", String.valueOf(appId)).normalize();
+            Path previewPath = appPathProperties.getTmpDir()
+                    .resolve("app-previews")
+                    .resolve(String.valueOf(appId))
+                    .normalize();
 
             if (Files.exists(previewPath)) {
                 try (Stream<Path> stream = Files.walk(previewPath)) {
