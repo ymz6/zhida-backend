@@ -565,6 +565,13 @@ public class AppOperationService {
                     appChatSemaphore.release();
                 }
             };
+            // 遇到过 AI 绕过 exitToolCall 工具直接结束的边界情况，以下代码是最后一道防线，在此之前我对 exitToolCall
+            // 工具的描述以及系统提示词进行了加固
+            // TODO 但是目前无法做到完美，这一步只能提示用户和记录日志，系统无法办到让 AI 重试
+            // 退出工具调用过么？
+            AtomicBoolean exitCalled = new AtomicBoolean(false);
+            // 退出工具调用成功了么？
+            AtomicBoolean exitPassed = new AtomicBoolean(false);
 
             return Flux.create(stringFluxSink -> {
                 try {
@@ -606,6 +613,12 @@ public class AppOperationService {
                                 String argumentsJsonStr = req.arguments();
                                 String result = toolExecution.result();
 
+                                // 特殊判断是否调用过退出工具以及是否完成
+                                if ("exitToolCalling".equals(toolName)) {
+                                    exitCalled.set(true);
+                                    exitPassed.set("系统验收通过，请停止调用工具并输出最终结果".equals(result));
+                                }
+
                                 String content = aiToolRegistry.getByName(toolName)
                                         .formatResponse(JSONUtil.parseObj(argumentsJsonStr), result);
                                 finalContentBuffer.append(content);
@@ -615,6 +628,28 @@ public class AppOperationService {
                                 try {
                                     // AI 回复结束
                                     log.debug("AI 最终输出的内容为：{}", response.aiMessage().text());
+
+                                    // TODO 一个较为无奈的 AI 绕过 exitToolCall 工具的处理方案
+                                    if (!exitCalled.get() || !exitPassed.get()) {
+                                        String guardContent = exitCalled.get()
+                                                ? "\n【系统拦截】AI 已调用 exitToolCalling，但系统验收未通过，本轮生成未作为有效交付。\n"
+                                                : "\n【系统拦截】AI 未调用 exitToolCalling，已绕过强制验收流程，本轮生成未作为有效交付。\n";
+                                        log.warn("AI 未通过退出工具验收即结束，userId={}, appId={}, exitCalled={}, exitPassed={}",
+                                                userId, appId, exitCalled.get(), exitPassed.get());
+                                        finalContentBuffer.append(guardContent);
+
+                                        appChatMessageService.save(
+                                                AppChatMessage.builder()
+                                                        .appId(appId)
+                                                        .userId(userId)
+                                                        .role(ChatMessageType.AI.name())
+                                                        .content(finalContentBuffer.toString())
+                                                        .build());
+
+                                        stringFluxSink.next(guardContent);
+                                        stringFluxSink.complete();
+                                        return;
+                                    }
                                     // 存储 AI 完整回复内容
                                     appChatMessageService.save(
                                             AppChatMessage.builder()

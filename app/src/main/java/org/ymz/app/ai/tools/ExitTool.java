@@ -32,7 +32,7 @@ public class ExitTool implements BaseTool {
 
     @Override
     public String toolName() {
-        return "exit";
+        return "exitToolCalling";
     }
 
     @Override
@@ -50,8 +50,14 @@ public class ExitTool implements BaseTool {
         return "\n【工具调用结果】系统验收通过\n\n";
     }
 
-    @Tool("任务完成时调用，提交系统验收；通过后结束，失败则修复后重试")
-    public String exit(@ToolMemoryId Long appId) {
+    @Tool("""
+            本工具是本轮任务唯一合法的完成提交方式。
+            当你完成所有必要代码修改，并确认关键文件内容正确后，必须调用本工具提交系统验收：
+            本工具返回验收通过后，才允许输出最终交付说明。
+            本工具返回验收失败时，必须继续修复并再次调用本工具。
+            禁止在未调用本工具前直接输出最终交付说明。
+            """)
+    public String exitToolCalling(@ToolMemoryId Long appId) {
         log.debug("AI 调用退出工具， 请求参数：appId={}，系统验收中...", appId);
         Path workspacePath = appPathProperties.getTmpDir()
                 .resolve("app-workspace")
@@ -144,8 +150,4 @@ public class ExitTool implements BaseTool {
         }
     }
 
-//    @Override
-//    public String formatResponse(JSONObject arguments) {
-//        return "\n\n[执行结束]\n\n";
-//    }
 }
