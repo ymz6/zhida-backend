@@ -42,12 +42,12 @@ public class ExitTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n\n【选择工具】提交系统验收\n";
+        return "\n【选择工具】提交系统验收\n";
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
-        return "\n【工具调用结果】系统验收通过\n\n";
+        return "\n【工具调用结果】系统验收通过\n";
     }
 
     @Tool("""

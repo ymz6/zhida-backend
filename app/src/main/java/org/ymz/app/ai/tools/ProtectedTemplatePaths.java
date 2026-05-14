@@ -15,7 +15,9 @@ public class ProtectedTemplatePaths {
                         "main.jsx",
                         "index.css",
                         "components/ui",
-                        "lib/utils.js");
+                        "lib/utils.js",
+                        "hooks/use-mobile.js"
+        );
 
         public static boolean contains(String normalizedRelativePath) {
                 return PATHS.stream()

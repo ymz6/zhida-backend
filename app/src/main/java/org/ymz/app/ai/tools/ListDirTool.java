@@ -21,12 +21,13 @@ import java.util.stream.Collectors;
 
 /**
  * 列出目录下的所有文件、目录
+ * 
  * @author ymz
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ListDirTool implements BaseTool{
+public class ListDirTool implements BaseTool {
     private final AppPathProperties appPathProperties;
 
     @Override
@@ -35,7 +36,8 @@ public class ListDirTool implements BaseTool{
     }
 
     @Tool("列出源码目录内的一层文件和子目录")
-    public String listDirectory(@P("相对源码根目录，例如：.、pages、components；. 表示源码根目录") String relativeDirectoryPath, @ToolMemoryId Long appId) {
+    public String listDirectory(@P("相对源码根目录，例如：.、pages、components；. 表示源码根目录") String relativeDirectoryPath,
+            @ToolMemoryId Long appId) {
         log.debug("AI 调用列目录工具， 请求参数：relativeDirectoryPath={}, appId={}", relativeDirectoryPath, appId);
         try {
             if (StrUtil.isBlank(relativeDirectoryPath) || appId == null) {
@@ -83,6 +85,7 @@ public class ListDirTool implements BaseTool{
             return errResult;
         }
     }
+
     @Override
     public String displayName() {
         return "列目录";
@@ -90,26 +93,21 @@ public class ListDirTool implements BaseTool{
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n\n【选择工具】列目录：`%s`\n".formatted(arguments.getStr("relativeDirectoryPath", ""));
+        return "\n【选择工具】列目录：`%s`\n".formatted(arguments.getStr("relativeDirectoryPath", ""));
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
         if ("目录为空".equals(result)) {
-            return "\n【工具调用结果】目录 `%s` 为空\n\n".formatted(arguments.getStr("relativeDirectoryPath", ""));
+            return "\n【工具调用结果】目录 `%s` 为空\n".formatted(arguments.getStr("relativeDirectoryPath", ""));
         }
 
         return """
                 \n【工具调用结果】目录 `%s` 包含 %d 项：
                 ```text
                 %s
-                ```
-                \n""".formatted(arguments.getStr("relativeDirectoryPath", ""), result.lines().count(), result);
+                ```\n
+                """.formatted(arguments.getStr("relativeDirectoryPath", ""), result.lines().count(), result);
     }
 
-//    @Override
-//    public String formatResponse(JSONObject arguments) {
-//        String relativeDirectoryPath = arguments.getStr("relativeDirectoryPath", "");
-//        return "\n\n[列目录] " + relativeDirectoryPath + "\n\n";
-//    }
 }

@@ -44,21 +44,21 @@ public class SearchFileNameTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n\n【选择工具】搜索文件名：`%s`\n".formatted(arguments.getStr("keyword", ""));
+        return "\n【选择工具】搜索文件名：`%s`\n".formatted(arguments.getStr("keyword", ""));
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
         if ("未找到匹配文件".equals(result)) {
-            return "\n【工具调用结果】%s\n\n".formatted(result);
+            return "\n【工具调用结果】%s\n".formatted(result);
         }
 
         return """
                 \n【工具调用结果】找到 %d 个匹配文件：
                 ```text
                 %s
-                ```
-                \n""".formatted(result.lines().count(), result);
+                ```\n
+                """.formatted(result.lines().count(), result);
     }
 
     @Tool("根据关键词模糊搜索文件名")
@@ -101,9 +101,4 @@ public class SearchFileNameTool implements BaseTool {
         }
     }
 
-//    @Override
-//    public String formatResponse(JSONObject arguments) {
-//        String keyword = arguments.getStr("keyword", "");
-//        return "\n\n[搜索文件名] " + keyword + "\n\n";
-//    }
 }

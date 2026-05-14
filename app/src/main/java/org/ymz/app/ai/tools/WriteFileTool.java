@@ -45,8 +45,10 @@ public class WriteFileTool implements BaseTool {
     }
 
     @Tool("创建新文件或覆盖整个文件内容；当需要替换文件大部分或全部内容时使用")
-    public String writeFile(@P("相对源码根目录，例如：pages/Home.jsx、components/Button.jsx") String relativeFilePath, @P("完整文件内容，会覆盖目标文件原有内容") String content, @ToolMemoryId Long appId) {
-        log.debug("AI 调用写入文件工具， 请求参数：relativeFilePath={}, contentLength={}, appId={}", relativeFilePath, content == null ? 0 : content.length(), appId);
+    public String writeFile(@P("相对源码根目录，例如：pages/Home.jsx、components/Button.jsx") String relativeFilePath,
+            @P("完整文件内容，会覆盖目标文件原有内容") String content, @ToolMemoryId Long appId) {
+        log.debug("AI 调用写入文件工具， 请求参数：relativeFilePath={}, contentLength={}, appId={}", relativeFilePath,
+                content == null ? 0 : content.length(), appId);
         try {
             if (StrUtil.isBlank(relativeFilePath) || appId == null) {
                 log.warn("AI 调用写入文件工具失败");
@@ -93,21 +95,15 @@ public class WriteFileTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n\n【选择工具】写文件：`%s`\n".formatted(arguments.getStr("relativeFilePath", ""));
+        return "\n【选择工具】写文件：`%s`\n".formatted(arguments.getStr("relativeFilePath", ""));
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
         String content = arguments.getStr("content", "");
-        return "\n【工具调用结果】文件 `%s` 写入成功（%d 行，%d 字符）\n\n".formatted(
+        return "\n【工具调用结果】文件 `%s` 写入成功（%d 行，%d 字符）\n".formatted(
                 arguments.getStr("relativeFilePath", ""),
                 content.lines().count(),
                 content.length());
     }
-
-//    @Override
-//    public String formatResponse(JSONObject arguments) {
-//        String relativeFilePath = arguments.getStr("relativeFilePath", "");
-//        return "\n\n[写文件] " + relativeFilePath + "\n\n";
-//    }
 }

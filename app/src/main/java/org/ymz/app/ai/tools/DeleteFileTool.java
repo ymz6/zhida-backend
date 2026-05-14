@@ -37,7 +37,8 @@ public class DeleteFileTool implements BaseTool {
             """.formatted(ProtectedTemplatePaths.listText());
 
     @Tool("删除文件")
-    public String deleteFile(@P("相对源码根目录，例如：pages/Home.jsx、components/Button.jsx") String relativeFilePath, @ToolMemoryId Long appId) {
+    public String deleteFile(@P("相对源码根目录，例如：pages/Home.jsx、components/Button.jsx") String relativeFilePath,
+            @ToolMemoryId Long appId) {
         log.debug("AI 调用删除文件工具， 请求参数：relativeFilePath={}, appId={}", relativeFilePath, appId);
         try {
             if (relativeFilePath == null || relativeFilePath.isBlank() || appId == null) {
@@ -93,12 +94,12 @@ public class DeleteFileTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n\n【选择工具】删除文件：`%s`\n".formatted(arguments.getStr("relativeFilePath", ""));
+        return "\n【选择工具】删除文件：`%s`\n".formatted(arguments.getStr("relativeFilePath", ""));
 
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
-        return "\n【工具调用结果】文件 `%s` 已删除\n\n".formatted(arguments.getStr("relativeFilePath", ""));
+        return "\n【工具调用结果】文件 `%s` 已删除\\n".formatted(arguments.getStr("relativeFilePath", ""));
     }
 }

@@ -139,7 +139,7 @@ public class ApplyPatchTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n\n【选择工具】%s：`%s`\n".formatted(this.displayName(), arguments.getStr("relativeFilePath", ""));
+        return "\n【选择工具】%s：`%s`\n".formatted(this.displayName(), arguments.getStr("relativeFilePath", ""));
     }
 
     @Override
@@ -153,8 +153,8 @@ public class ApplyPatchTool implements BaseTool {
                 新内容：
                 ```text
                 %s
-                ```
-                \n""".formatted(
+                ```\n
+                """.formatted(
                 arguments.getStr("relativeFilePath", ""),
                 formatSnippet(arguments.getStr("oldString", "")),
                 formatSnippet(arguments.getStr("newString", "")));
