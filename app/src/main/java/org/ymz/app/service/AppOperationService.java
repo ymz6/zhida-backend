@@ -7,7 +7,7 @@ import cn.hutool.core.util.ZipUtil;
 import cn.hutool.json.JSONUtil;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ChatMessageType;
-import jakarta.validation.Valid;
+import dev.langchain4j.invocation.InvocationParameters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,6 +38,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -86,7 +87,13 @@ public class AppOperationService {
         // 创建应用成功后返回应用 ID
         String initPrompt = request.getInitPrompt().trim();
         // 标题生成 AI Service 来对于用户初始提示词进行初筛
-        TitleGenerateResult titleGenerateResult = titleGenerateAiService.chat(initPrompt);
+
+        InvocationParameters parameters = InvocationParameters.from(Map.of(
+                "userId", userId
+        ));
+
+        TitleGenerateResult titleGenerateResult = titleGenerateAiService.chat(initPrompt, parameters);
+
         if (titleGenerateResult == null) {
             // AI 调用出错
             log.warn("应用标题生成失败");
@@ -586,7 +593,10 @@ public class AppOperationService {
 
                     // 处理 TokenStream
                     StringBuffer finalContentBuffer = new StringBuffer();
-                    codeGenerateAiService.chat(appId, userMessage)
+                    InvocationParameters parameters = InvocationParameters.from(Map.of(
+                            "userId", userId
+                    ));
+                    codeGenerateAiService.chat(appId, userMessage, parameters)
                             // TODO 预留能力，以后看看要不要加上
                             // .onPartialThinking(partialThinking -> {
                             // // 处理模型的 thinking 片段

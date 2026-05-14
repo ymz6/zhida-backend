@@ -1,5 +1,6 @@
 package org.ymz.app.ai.services;
 
+import dev.langchain4j.invocation.InvocationParameters;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import org.ymz.app.model.dto.app.TitleGenerateResult;
@@ -10,5 +11,5 @@ import org.ymz.app.model.dto.app.TitleGenerateResult;
  */
 public interface TitleGenerateAiService {
     @SystemMessage(fromResource = "prompt/application-title-generator.md")
-    TitleGenerateResult chat(@UserMessage String userMessage);
+    TitleGenerateResult chat(@UserMessage String userMessage, InvocationParameters parameters);
 }

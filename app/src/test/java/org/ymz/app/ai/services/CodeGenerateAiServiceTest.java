@@ -1,9 +1,11 @@
 package org.ymz.app.ai.services;
 
+import dev.langchain4j.invocation.InvocationParameters;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,7 +26,7 @@ class CodeGenerateAiServiceTest {
         AtomicInteger tokenCount = new AtomicInteger();
         AtomicInteger toolCount = new AtomicInteger();
 
-        codeGenerateAiService.chat(4L, "帮我做一个简单的Todo List 应用，支持代办事项的创建、删除")
+        codeGenerateAiService.chat(4L, "帮我做一个简单的Todo List 应用，支持代办事项的创建、删除", InvocationParameters.from(Map.of()))
                 // 1. 普通文本流式输出：最核心，用来观察打字机效果
                 .onPartialResponse(partialResponse -> {
                     tokenCount.incrementAndGet();

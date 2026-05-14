@@ -46,6 +46,7 @@ public class ExitTool implements BaseTool {
     }
 
     @Override
+    // TODO 这里有问题！工具中的错误信息也是被当作结果的！
     public String formatResponse(JSONObject arguments, String result) {
         return "\n【工具调用结果】系统验收通过\n";
     }

@@ -8,7 +8,6 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.ymz.app.ai.listener.LLMLogListener;
 
 import java.time.Duration;
 import java.util.Map;
@@ -25,7 +24,7 @@ public class LLMsFactoryConfig {
      * 标题生成模型
      */
     @Bean
-    public ChatModel titleGenerateModel(LLMLogListener llmLogListener) {
+    public ChatModel titleGenerateModel() {
         final String API_KEY = System.getenv("ZHIDA_TITLE_GEN_API_KEY");
         if (StrUtil.isBlank(API_KEY)) {
             throw new IllegalStateException("未检测到环境变量 ZHIDA_TITLE_GEN_API_KEY，请先在操作系统中设置");
@@ -42,7 +41,6 @@ public class LLMsFactoryConfig {
                         Map.of("enable_thinking", false))
                 .logRequests(true)
                 .logResponses(true)
-                .listeners(llmLogListener)
                 .build();
     }
 
@@ -50,7 +48,7 @@ public class LLMsFactoryConfig {
      * 代码生成模型
      */
     @Bean
-    public StreamingChatModel codeGenerateModel(LLMLogListener llmLogListener) {
+    public StreamingChatModel codeGenerateModel() {
         final String API_KEY = System.getenv("ZHIDA_CODE_GEN_API_KEY");
         if (StrUtil.isBlank(API_KEY)) {
             throw new IllegalStateException("未检测到环境变量 ZHIDA_CODE_GEN_API_KEY，请先在操作系统中设置");
@@ -65,7 +63,6 @@ public class LLMsFactoryConfig {
                 .customParameters(Map.of(
                         // 暂时禁用思考模式，后续会考虑打开
                         "thinking", Map.of("type", "disabled")))
-                .listeners(llmLogListener)
                 .logRequests(false)
                 .logResponses(false)
                 .build();
