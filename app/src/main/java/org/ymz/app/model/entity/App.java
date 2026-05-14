@@ -64,6 +64,26 @@ public class App implements Serializable {
     private LocalDateTime deployedAt;
 
     /**
+     * 审核状态：0-草稿，1-待审核，2-审核通过，3-审核拒绝
+     */
+    private Integer auditStatus;
+
+    /**
+     * 最近一次审核通过时间
+     */
+    private LocalDateTime publishedAt;
+
+    /**
+     * 是否精选
+     */
+    private Boolean featured;
+
+    /**
+     * 设置精选时间
+     */
+    private LocalDateTime featuredAt;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createdAt;

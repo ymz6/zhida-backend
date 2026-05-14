@@ -20,6 +20,7 @@ import org.ymz.app.model.dto.app.*;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.enums.UserRole;
+import org.ymz.app.model.enums.app.AppAuditStatus;
 import org.ymz.app.model.enums.app.FileNodeType;
 import org.ymz.app.model.enums.oss.BucketType;
 import org.ymz.app.oss.RustFSClient;
@@ -179,6 +180,7 @@ public class AppOperationService {
         if (!app.getUserId().equals(authContext.getUserId()) && !UserRole.ADMIN.equals(authContext.getUserRole())) {
             throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
+        ensureNotPendingAudit(app);
 
         appService.updateById(
                 App.builder()
@@ -432,6 +434,7 @@ public class AppOperationService {
         if (!userId.equals(app.getUserId())) {
             throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
+        ensureNotPendingAudit(app);
         // 校验 deployeKey
         String deployKey = app.getDeployKey();
 
@@ -558,6 +561,7 @@ public class AppOperationService {
         if (!app.getUserId().equals(userId)) {
             throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
+        ensureNotPendingAudit(app);
 
         String userMessage = request.getPrompt().trim();
 
@@ -701,5 +705,12 @@ public class AppOperationService {
                 }
             });
         });
+    }
+
+    private void ensureNotPendingAudit(App app) {
+        // 待审核期间冻结应用内容，用户需要先撤回审核再修改。
+        if (AppAuditStatus.PENDING.getCode().equals(app.getAuditStatus())) {
+            throw BusinessException.of(ResultCode.INVALID_PARAM, "应用正在审核中，请撤回审核后再修改");
+        }
     }
 }

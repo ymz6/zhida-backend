@@ -24,5 +24,13 @@ public class AppVO {
 
     private LocalDateTime deployedAt;
 
+    private Integer auditStatus;
+
+    private LocalDateTime publishedAt;
+
+    private Boolean featured;
+
+    private LocalDateTime featuredAt;
+
     private LocalDateTime createdAt;
 }

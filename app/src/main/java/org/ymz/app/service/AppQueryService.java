@@ -10,12 +10,14 @@ import org.ymz.app.model.dto.app.AppChatMessageVO;
 import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.ymz.app.model.dto.page.PageQuery;
 import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.User;
 import org.ymz.app.model.enums.UserRole;
+import org.ymz.app.model.enums.app.AppAuditStatus;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
@@ -44,34 +46,58 @@ public class AppQueryService {
     private final AppConverter appConverter;
 
     public PageResult<AppVO> listApps(ListAppsRequest request) {
-        // 先分页查询应用，再批量查询本页涉及的作者，最后用 MapStruct 组装 AppVO。
-        // 这样既保留 App 与 User 各自的转换逻辑，也避免列表页出现 N+1 次用户查询。
         QueryWrapper query = QueryWrapper.create()
                 .select(APP.ALL_COLUMNS)
                 .from(APP)
                 .orderBy(APP.CREATED_AT.desc());
 
         Page<App> page = appService.page(request.toPage(), query);
-        List<Long> userIds = page.getRecords().stream()
-                .map(App::getUserId)
-                .distinct()
-                .toList();
-        Map<Long, User> userMap = userIds.isEmpty()
-                ? Map.of()
-                : userService.listByIds(userIds).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
-
-        return PageResult.of(page, app -> {
-            // 分页场景批量加载作者，避免每条应用单独查询用户。
-            User author = userMap.get(app.getUserId());
-            return appConverter.toAppVO(app, author);
-        });
+        return toAppPageResult(page);
     }
 
     public AppVO getApp(Long appId) {
         App app = appService.getById(appId);
         if (app == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");
+        }
+
+        User author = userService.getById(app.getUserId());
+        return appConverter.toAppVO(app, author);
+    }
+
+    public PageResult<AppVO> listCases(PageQuery request) {
+        QueryWrapper query = QueryWrapper.create()
+                .select(APP.ALL_COLUMNS)
+                .from(APP)
+                .where(APP.AUDIT_STATUS.eq(AppAuditStatus.APPROVED.getCode()))
+                .orderBy(APP.FEATURED.desc(), APP.FEATURED_AT.desc(), APP.PUBLISHED_AT.desc());
+
+        Page<App> page = appService.page(request.toPage(), query);
+        return toAppPageResult(page);
+    }
+
+    public PageResult<AppVO> listFeaturedCases(PageQuery request) {
+        QueryWrapper query = QueryWrapper.create()
+                .select(APP.ALL_COLUMNS)
+                .from(APP)
+                .where(APP.AUDIT_STATUS.eq(AppAuditStatus.APPROVED.getCode()))
+                .and(APP.FEATURED.eq(true))
+                .orderBy(APP.FEATURED_AT.desc(), APP.PUBLISHED_AT.desc());
+
+        Page<App> page = appService.page(request.toPage(), query);
+        return toAppPageResult(page);
+    }
+
+    public AppVO getCase(Long appId) {
+        // 案例广场只展示审核通过的公开应用。
+        QueryWrapper query = QueryWrapper.create()
+                .select(APP.ALL_COLUMNS)
+                .from(APP)
+                .where(APP.ID.eq(appId))
+                .and(APP.AUDIT_STATUS.eq(AppAuditStatus.APPROVED.getCode()));
+        App app = appService.getOne(query);
+        if (app == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "案例不存在");
         }
 
         User author = userService.getById(app.getUserId());
@@ -124,19 +150,20 @@ public class AppQueryService {
         return CursorResult.of(list, nextCursor, hasMore);
     }
 
-//    private AppAuthor toAppAuthor(User user) {
-//        if (user == null) {
-//            return null;
-//        }
-//
-//        AppAuthor author = new AppAuthor();
-//        author.setId(user.getId());
-//        author.setNickname(user.getNickname());
-//        author.setAvatar(user.getAvatar());
-//        return author;
-//    }
+    private PageResult<AppVO> toAppPageResult(Page<App> page) {
+        // 分页场景批量加载作者，避免每条应用单独查询用户。
+        List<Long> userIds = page.getRecords().stream()
+                .map(App::getUserId)
+                .distinct()
+                .toList();
+        Map<Long, User> userMap = userIds.isEmpty()
+                ? Map.of()
+                : userService.listByIds(userIds).stream()
+                        .collect(Collectors.toMap(User::getId, user -> user));
 
-//    private List<String> visibleRoles() {
-//        return List.of(USER.name(), ASSISTANT.name());
-//    }
+        return PageResult.of(page, app -> {
+            User author = userMap.get(app.getUserId());
+            return appConverter.toAppVO(app, author);
+        });
+    }
 }

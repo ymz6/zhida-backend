@@ -13,11 +13,14 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.ymz.app.model.dto.app.*;
+import org.ymz.app.model.dto.audit.AuditRecordVO;
+import org.ymz.app.model.dto.audit.ListAuditRecordsRequest;
 import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
 import org.ymz.app.security.LoginRequired;
+import org.ymz.app.service.AppAuditService;
 import org.ymz.app.service.AppOperationService;
 import org.ymz.app.service.AppQueryService;
 import org.ymz.app.web.exception.BusinessException;
@@ -44,6 +47,7 @@ public class AppController {
 
     private final AppOperationService appOperationService;
     private final AppQueryService appQueryService;
+    private final AppAuditService appAuditService;
 
     // 分页查询应用列表
     @GetMapping
@@ -174,4 +178,33 @@ public class AppController {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(appQueryService.listAppMessages(authContext, appId, request));
     }
+
+    // 提交应用案例审核
+    @PostMapping("/{appId}/audit/submit")
+    @Operation(operationId = "submitAppAudit")
+    public Response<Void> submitAppAudit(@PathVariable Long appId) {
+        AuthContext authContext = AuthContextHolder.get();
+        appAuditService.submitAudit(authContext, appId);
+        return Response.ok();
+    }
+
+    // 撤回应用案例审核
+    @PostMapping("/{appId}/audit/withdraw")
+    @Operation(operationId = "withdrawAppAudit")
+    public Response<Void> withdrawAppAudit(@PathVariable Long appId) {
+        AuthContext authContext = AuthContextHolder.get();
+        appAuditService.withdrawAudit(authContext, appId);
+        return Response.ok();
+    }
+
+    // 查询应用审核记录
+    @GetMapping("/{appId}/audit-records")
+    @Operation(operationId = "listAppAuditRecords")
+    public Response<PageResult<AuditRecordVO>> listAppAuditRecords(
+            @PathVariable Long appId,
+            @Validated ListAuditRecordsRequest request) {
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appAuditService.listAppAuditRecords(authContext, appId, request));
+    }
+
 }
