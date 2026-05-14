@@ -23,7 +23,7 @@ import org.ymz.app.model.enums.UserRole;
 import org.ymz.app.model.enums.app.AppAuditStatus;
 import org.ymz.app.model.enums.app.FileNodeType;
 import org.ymz.app.model.enums.oss.BucketType;
-import org.ymz.app.oss.RustFSClient;
+import org.ymz.app.oss.OssClient;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
@@ -76,7 +76,7 @@ public class AppOperationService {
     private final AppService appService;
     private final AppQueryService appQueryService;
     private final WebPageScreenshotService webPageScreenshotService;
-    private final RustFSClient rustFSClient;
+    private final OssClient ossClient;
     private final AppPathProperties appPathProperties;
     private final AppChatMessageService appChatMessageService;
     private final AiToolRegistry aiToolRegistry;
@@ -519,10 +519,10 @@ public class AppOperationService {
                     byte[] coverBytes = webPageScreenshotService.captureJpeg(deployUrl);
                     String coverKey = "app-covers/" + appId + "/" + IdUtil.fastSimpleUUID() + ".jpg";
                     try (ByteArrayInputStream inputStream = new ByteArrayInputStream(coverBytes)) {
-                        rustFSClient.uploadObject(BucketType.PUBLIC, inputStream, coverKey, "image/jpeg",
+                        ossClient.uploadObject(BucketType.PUBLIC, inputStream, coverKey, "image/jpeg",
                                 coverBytes.length);
                     }
-                    String coverUrl = rustFSClient.getPublicObjectUrl(coverKey);
+                    String coverUrl = ossClient.getPublicObjectUrl(coverKey);
                     appService.updateChain()
                             .set(APP.COVER_URL, coverUrl)
                             .where(APP.ID.eq(appId))

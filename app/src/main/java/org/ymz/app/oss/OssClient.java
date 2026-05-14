@@ -12,64 +12,35 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.io.InputStream;
 import java.net.URI;
 
 /**
- * RustFS 客户端
- * 封装了标准的 AWS S3 SDK
- * 后续根据业务需要动态增加所需方法
+ * OSS 客户端，基于 S3 兼容协议封装对象存储操作
+ *
  * @author ymz
  */
 @Slf4j
-@ConfigurationProperties(prefix = "oss")
-public class RustFSClient {
-    private final String uri;
-
-    /**
-     * 公共桶：存放可直接访问的资源
-     */
-    private final String publicBucket;
-
-    /**
-     * 私有桶：存放需要鉴权访问的资源
-     */
-    private final String privateBucket;
-
+public class OssClient {
+    private final Properties properties;
     private final S3Client s3Client;
-    private final S3Presigner s3Presigner;
 
-    public RustFSClient(String uri, String accessKey, String secretKey, String publicBucket, String privateBucket) {
-        this.publicBucket = publicBucket;
-        this.privateBucket = privateBucket;
-        this.uri = uri;
+    public OssClient(Properties properties) {
+        this.properties = properties;
 
-        StaticCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
-        URI endpoint = URI.create(uri);
+        StaticCredentialsProvider credentialsProvider = StaticCredentialsProvider
+                .create(AwsBasicCredentials.create(properties.accessKey(), properties.secretKey()));
+        URI endpoint = URI.create(properties.uri());
         // S3 客户端：用于实际上传、删除等对象操作
         this.s3Client = S3Client.builder()
                 .endpointOverride(endpoint)
                 .region(Region.US_EAST_1)
                 .credentialsProvider(credentialsProvider)
                 .forcePathStyle(true)
-                .build();
-
-        // 预签名客户端：用于生成带时效性的上传/下载签名链接
-        this.s3Presigner = S3Presigner.builder()
-                .endpointOverride(endpoint)
-                .region(Region.US_EAST_1)
-                .credentialsProvider(credentialsProvider)
-                .serviceConfiguration(
-                        S3Configuration.builder()
-                                .pathStyleAccessEnabled(true)
-                                .build()
-                )
                 .build();
     }
 
@@ -82,7 +53,8 @@ public class RustFSClient {
      * @param contentType   对象内容类型
      * @param contentLength 对象内容长度（字节，需与实际内容一致）
      */
-    public void uploadObject(BucketType bucketType, InputStream inputStream, String key, String contentType, long contentLength) {
+    public void uploadObject(BucketType bucketType, InputStream inputStream, String key, String contentType,
+            long contentLength) {
         String bucket = resolveBucket(bucketType);
         try {
             PutObjectRequest request = PutObjectRequest.builder()
@@ -119,17 +91,30 @@ public class RustFSClient {
 
     /**
      * 获取公有桶对象的访问地址
+     *
      * @param key 对象 key
      * @return 对象访问地址
      */
     public String getPublicObjectUrl(String key) {
-        return StrUtil.format("{}/{}/{}", uri, publicBucket, key);
+        return StrUtil.format("{}/{}/{}", properties.uri(), properties.publicBucket(), key);
     }
 
     private String resolveBucket(BucketType bucketType) {
         return switch (bucketType) {
-            case PUBLIC -> publicBucket;
-            case PRIVATE -> privateBucket;
+            case PUBLIC -> properties.publicBucket();
+            case PRIVATE -> properties.privateBucket();
         };
+    }
+
+    /**
+     * OSS 配置，仅服务于 {@link OssClient}
+     */
+    @ConfigurationProperties(prefix = "oss")
+    public record Properties(
+            String uri,
+            String accessKey,
+            String secretKey,
+            String publicBucket,
+            String privateBucket) {
     }
 }

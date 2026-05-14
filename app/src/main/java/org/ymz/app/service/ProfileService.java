@@ -13,7 +13,7 @@ import org.ymz.app.model.dto.profile.UpdateProfileRequest;
 import org.ymz.app.model.dto.user.UserVO;
 import org.ymz.app.model.entity.User;
 import org.ymz.app.model.enums.oss.BucketType;
-import org.ymz.app.oss.RustFSClient;
+import org.ymz.app.oss.OssClient;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
 
@@ -42,7 +42,7 @@ public class ProfileService {
 
     private final UserService userService;
     private final UserConverter userConverter;
-    private final RustFSClient rustFSClient;
+    private final OssClient ossClient;
 
     public UserVO getProfile(Long userId) {
         User user = userService.getById(userId);
@@ -121,11 +121,11 @@ public class ProfileService {
         // 如果数据库更新失败，需要尽量删除刚上传成功的对象，避免产生孤儿文件
         String avatarKey = AVATAR_PREFIX + IdUtil.fastSimpleUUID() + "." + extension;
         try (InputStream is = new ByteArrayInputStream(fileBytes)) {
-            rustFSClient.uploadObject(BucketType.PUBLIC, is, avatarKey, detectedMimeType, fileBytes.length);
+            ossClient.uploadObject(BucketType.PUBLIC, is, avatarKey, detectedMimeType, fileBytes.length);
         } catch (IOException e) {
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, "读取头像文件失败", e);
         }
-        String avatarUrl = rustFSClient.getPublicObjectUrl(avatarKey);
+        String avatarUrl = ossClient.getPublicObjectUrl(avatarKey);
 
         User userToUpdate = User.builder()
                 .id(userId)
@@ -134,7 +134,7 @@ public class ProfileService {
         if (!userService.updateById(userToUpdate)) {
             // 更新失败，尽量删除刚刚上传成功的文件
             try {
-                rustFSClient.deleteObject(BucketType.PUBLIC, avatarKey);
+                ossClient.deleteObject(BucketType.PUBLIC, avatarKey);
             } catch (Exception ex) {
                 log.warn("数据库更新失败后，回滚头像文件失败: key={}", avatarKey, ex);
             }
