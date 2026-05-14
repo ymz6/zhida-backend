@@ -7,20 +7,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.web.servlet.HandlerMapping;
-import org.ymz.app.model.dto.app.AppVO;
-import org.ymz.app.model.dto.app.CreateAppRequest;
-import org.ymz.app.model.dto.app.EditAppRequest;
-import org.ymz.app.model.dto.app.FileNode;
-import org.ymz.app.model.dto.app.ListAppsRequest;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+import org.ymz.app.model.dto.app.*;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
@@ -30,6 +22,7 @@ import org.ymz.app.service.AppQueryService;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.Response;
 import org.ymz.app.web.response.ResultCode;
+import reactor.core.publisher.Flux;
 
 import java.io.File;
 import java.io.IOException;
@@ -65,6 +58,8 @@ public class AppController {
         return Response.ok(appQueryService.getApp(appId));
     }
 
+    // TODO 后续优化想法：创建应用是一个长耗时操作（因为初始化应用的逻辑在），我想可否通过 SSE 返回进度，提升用户体验？
+    // 以后所有耗时操作都可以考虑这样优化？
     // 创建应用 已经稳定
     @PostMapping
     @Operation(operationId = "createApp")
@@ -119,7 +114,8 @@ public class AppController {
     // 预览应用 已经稳定
     @GetMapping("/preview/{appId}/**")
     @Operation(operationId = "previewApp")
-    public ResponseEntity<Resource> previewApp(@PathVariable Long appId, HttpServletRequest request) throws IOException {
+    public ResponseEntity<Resource> previewApp(@PathVariable Long appId, HttpServletRequest request)
+            throws IOException {
         // 从 request 解析 resourcePath
         String requestPath = (String) request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
         String prefix = "/apps/preview/" + appId;
@@ -160,15 +156,13 @@ public class AppController {
         return Response.ok(appOperationService.deployApp(authContext.getUserId(), appId));
     }
 
-    // 要重新设计
-    // @PostMapping(value = "/{appId}/chat", produces =
-    // MediaType.TEXT_EVENT_STREAM_VALUE)
-    // @Operation(operationId = "chatWithApp")
-    // public SseEmitter chatWithApp(@PathVariable Long appId, @RequestBody @Valid
-    // ChatRequest request) {
-    // AuthContext authContext = AuthContextHolder.get();
-    // return appChatService.chat(authContext.getUserId(), appId, request);
-    // }
+    // 通过聊天生成应用
+    @PostMapping(value = "/{appId}/chat-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(operationId = "chatWithApp")
+    public Flux<String> chatWithApp(@PathVariable Long appId, @RequestBody @Valid ChatRequest request) {
+        AuthContext authContext = AuthContextHolder.get();
+        return appOperationService.chat(authContext.getUserId(), appId, request);
+    }
 
     // 要重新设计
     // @GetMapping("/{appId}/messages")

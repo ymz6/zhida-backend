@@ -20,6 +20,7 @@ import org.ymz.app.service.LlmLogService;
 
 /**
  * LLM 日志监听器
+ * 
  * @author ymz
  */
 @Slf4j
@@ -34,10 +35,10 @@ public class LLMLogListener implements ChatModelListener {
     private final ObjectMapper objectMapper;
 
     /*
-    Notes:
-    非流式 ChatModel：一般同线程，但也不要依赖 ThreadLocal。
-    流式 StreamingChatModel：onRequest 和 onResponse/onError 明确可能不同线程。
-    这里统一通过LangChain4j提供的 context 来在不同的回调之间传递数据
+     * Notes:
+     * 非流式 ChatModel：一般同线程，但也不要依赖 ThreadLocal。
+     * 流式 StreamingChatModel：onRequest 和 onResponse/onError 明确可能不同线程。
+     * 这里统一通过LangChain4j提供的 context 来在不同的回调之间传递数据
      */
 
     /**
@@ -49,8 +50,8 @@ public class LLMLogListener implements ChatModelListener {
         Long userId = AuthContextHolder.get().getUserId();
         Long startTime = System.currentTimeMillis();
 
-        requestContext.attributes().put(USER_ID_KEY,userId);
-        requestContext.attributes().put(START_TIME_KEY,startTime);
+        requestContext.attributes().put(USER_ID_KEY, userId);
+        requestContext.attributes().put(START_TIME_KEY, startTime);
     }
 
     /**
@@ -100,7 +101,7 @@ public class LLMLogListener implements ChatModelListener {
      */
     @Override
     public void onError(ChatModelErrorContext errorContext) {
-        log.warn("LLM 调用失败",errorContext.error());
+        log.warn("LLM 调用失败", errorContext.error());
         Long userId = (Long) errorContext.attributes().get(USER_ID_KEY);
 
         ChatRequest chatRequest = errorContext.chatRequest();

@@ -4,24 +4,29 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.ZipUtil;
+import cn.hutool.json.JSONUtil;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.data.message.ChatMessageType;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.ymz.app.ai.services.CodeGenerateAiService;
 import org.ymz.app.ai.services.TitleGenerateAiService;
+import org.ymz.app.ai.tools.AiToolRegistry;
 import org.ymz.app.browser.WebPageScreenshotService;
-import org.ymz.app.model.dto.app.AppVO;
-import org.ymz.app.model.dto.app.CreateAppRequest;
-import org.ymz.app.model.dto.app.EditAppRequest;
-import org.ymz.app.model.dto.app.FileNode;
-import org.ymz.app.model.dto.app.TitleGenerateResult;
+import org.ymz.app.config.AppPathProperties;
+import org.ymz.app.model.dto.app.*;
 import org.ymz.app.model.entity.App;
-import org.ymz.app.model.enums.app.FileNodeType;
+import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.enums.UserRole;
+import org.ymz.app.model.enums.app.FileNodeType;
 import org.ymz.app.model.enums.oss.BucketType;
 import org.ymz.app.oss.RustFSClient;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.ResultCode;
+import reactor.core.publisher.Flux;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -29,13 +34,16 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import static org.ymz.app.model.entity.table.AppTableDef.APP;
@@ -56,12 +64,20 @@ public class AppOperationService {
             "application/javascript",
             "application/xml",
             "image/svg+xml");
+    /**
+     * 同一 appId 对应 LangChain4j 的同一 MemoryId，流式生成期间不能并发调用 AI Service。
+     */
+    private final ConcurrentMap<Long, Semaphore> appChatSemaphores = new ConcurrentHashMap<>();
 
     private final TitleGenerateAiService titleGenerateAiService;
+    private final CodeGenerateAiService codeGenerateAiService;
     private final AppService appService;
     private final AppQueryService appQueryService;
     private final WebPageScreenshotService webPageScreenshotService;
     private final RustFSClient rustFSClient;
+    private final AppPathProperties appPathProperties;
+    private final AppChatMessageService appChatMessageService;
+    private final AiToolRegistry aiToolRegistry;
 
     /**
      * 创建应用
@@ -93,14 +109,12 @@ public class AppOperationService {
         Long appId = app.getId();
         try {
             log.debug("开始初始化应用{}的工作区", appId);
-            Path projectRootPath = Paths.get(System.getProperty("user.dir")).normalize();
-            Path templatePath = projectRootPath.resolve("project-template").resolve("zhida-react-project").normalize();
+            Path templatePath = appPathProperties.getTemplateDir();
             if (!Files.isDirectory(templatePath)) {
                 throw new IllegalStateException("项目模板目录不存在");
             }
 
-            Path workspacePath = projectRootPath
-                    .resolve("tmp")
+            Path workspacePath = appPathProperties.getTmpDir()
                     .resolve("app-workspace")
                     .resolve(String.valueOf(appId))
                     .normalize();
@@ -187,11 +201,8 @@ public class AppOperationService {
         Thread.startVirtualThread(() -> {
             try {
                 log.debug("开始删除应用{}的相关资源", appId);
-                Path projectRootPath = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
-
-                Path workspaceRootPath = projectRootPath.resolve("tmp").resolve("app-workspace").normalize();
-                Path workspacePath = projectRootPath
-                        .resolve("tmp")
+                Path workspaceRootPath = appPathProperties.getTmpDir().resolve("app-workspace").normalize();
+                Path workspacePath = appPathProperties.getTmpDir()
                         .resolve("app-workspace")
                         .resolve(String.valueOf(appId))
                         .normalize();
@@ -205,9 +216,8 @@ public class AppOperationService {
                     }
                 }
 
-                Path previewRootPath = projectRootPath.resolve("tmp").resolve("app-previews").normalize();
-                Path previewPath = projectRootPath
-                        .resolve("tmp")
+                Path previewRootPath = appPathProperties.getTmpDir().resolve("app-previews").normalize();
+                Path previewPath = appPathProperties.getTmpDir()
                         .resolve("app-previews")
                         .resolve(String.valueOf(appId))
                         .normalize();
@@ -222,7 +232,7 @@ public class AppOperationService {
                 }
 
                 if (StrUtil.isNotBlank(app.getDeployKey())) {
-                    Path deployRootPath = projectRootPath.resolve("tmp").resolve("app-deploy").normalize();
+                    Path deployRootPath = appPathProperties.getTmpDir().resolve("app-deploy").normalize();
                     Path deployPath = deployRootPath.resolve(app.getDeployKey()).normalize();
                     if (deployPath.startsWith(deployRootPath) && Files.exists(deployPath)) {
                         log.debug("开始删除应用{}的部署文件", appId);
@@ -255,7 +265,7 @@ public class AppOperationService {
         }
 
         String relativePath = StrUtil.trimToEmpty(path);
-        Path workspaceRootPath = Paths.get(System.getProperty("user.dir"), "tmp", "app-workspace").normalize();
+        Path workspaceRootPath = appPathProperties.getTmpDir().resolve("app-workspace").normalize();
         Path workspacePath = workspaceRootPath.resolve(String.valueOf(appId)).normalize();
         if (!workspacePath.startsWith(workspaceRootPath) || !Files.isDirectory(workspacePath)) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "应用源码目录不存在");
@@ -357,11 +367,10 @@ public class AppOperationService {
         if ("/".equals(resourcePath)) {
             resourcePath = "/index.html";
         }
-        Path previewRootPath = Paths.get(
-                System.getProperty("user.dir"),
-                "tmp",
-                "app-previews",
-                String.valueOf(appId)).normalize();
+        Path previewRootPath = appPathProperties.getTmpDir()
+                .resolve("app-previews")
+                .resolve(String.valueOf(appId))
+                .normalize();
         // 构建目标文件路径
         Path targetPath = previewRootPath
                 // 去掉开头的 /
@@ -377,8 +386,7 @@ public class AppOperationService {
     /**
      * 下载应用源码压缩包
      */
-    public void downloadAppSourceCode(AuthContext authContext, Long appId, OutputStream outputStream)
-            throws IOException {
+    public void downloadAppSourceCode(AuthContext authContext, Long appId, OutputStream outputStream) {
         App app = appService.getById(appId);
         if (app == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");
@@ -387,7 +395,7 @@ public class AppOperationService {
             throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
 
-        Path workspaceRootPath = Paths.get(System.getProperty("user.dir"), "tmp", "app-workspace").normalize();
+        Path workspaceRootPath = appPathProperties.getTmpDir().resolve("app-workspace").normalize();
         Path workspacePath = workspaceRootPath.resolve(String.valueOf(appId)).normalize();
         if (!workspacePath.startsWith(workspaceRootPath) || !Files.isDirectory(workspacePath)) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "应用源码目录不存在");
@@ -427,11 +435,10 @@ public class AppOperationService {
         }
 
         try {
-            Path sourcePath = Paths.get(
-                    System.getProperty("user.dir"),
-                    "tmp",
-                    "app-workspace",
-                    String.valueOf(appId)).normalize();
+            Path sourcePath = appPathProperties.getTmpDir()
+                    .resolve("app-workspace")
+                    .resolve(String.valueOf(appId))
+                    .normalize();
             if (!Files.isDirectory(sourcePath)) {
                 throw BusinessException.of(ResultCode.NOT_FOUND, "应用源码目录不存在");
             }
@@ -462,7 +469,10 @@ public class AppOperationService {
 
             // 正式部署目录放在 tmp 下，并按 deployKey 覆盖，保持演示流程简单直观。
             log.debug("开始复制文件到部署目录");
-            Path deployPath = Paths.get(System.getProperty("user.dir"), "tmp", "app-deploy", deployKey).normalize();
+            Path deployPath = appPathProperties.getTmpDir()
+                    .resolve("app-deploy")
+                    .resolve(deployKey)
+                    .normalize();
             if (Files.exists(deployPath)) {
                 try (Stream<Path> stream = Files.walk(deployPath)) {
                     // 先删除子文件和子目录，再删除父目录，避免目录非空导致删除失败。
@@ -523,4 +533,128 @@ public class AppOperationService {
 
     }
 
+    /**
+     * 通过对话生成应用
+     * <br/>
+     * Notes:
+     * LangChain4j 官方文档指出：对于相同的 @MemoryId（当前项目中指的是 appId），不应该并发调用 Ai Service ，否则可能导致
+     * ChatMemory 损坏。
+     * 因此我应该对这个重要的聊天方法加上合适的并发限制
+     */
+    public Flux<String> chat(Long userId, Long appId, ChatRequest request) {
+        // 校验应用是否存在
+        App app = appService.getById(appId);
+        if (app == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND);
+        }
+        // 只允许作者本人在自己的应用内和 AI 对话
+        if (!app.getUserId().equals(userId)) {
+            throw BusinessException.of(ResultCode.NO_PERMISSION);
+        }
+
+        String userMessage = request.getPrompt().trim();
+
+        return Flux.defer(() -> {
+            Semaphore appChatSemaphore = appChatSemaphores.computeIfAbsent(appId, ignored -> new Semaphore(1));
+            if (!appChatSemaphore.tryAcquire()) {
+                return Flux.error(BusinessException.of(ResultCode.TOO_MANY_REQUESTS, "当前应用正在生成中，请稍后再试"));
+            }
+            AtomicBoolean released = new AtomicBoolean(false);
+            Runnable releaseAppChatSemaphore = () -> {
+                if (released.compareAndSet(false, true)) {
+                    appChatSemaphore.release();
+                }
+            };
+
+            return Flux.create(stringFluxSink -> {
+                try {
+                    // 拿到当前 appId 的生成许可后，再记录用户消息，避免被拒绝的并发请求污染对话记录。
+                    appChatMessageService.save(
+                            AppChatMessage.builder()
+                                    .appId(appId)
+                                    .userId(userId)
+                                    .role(ChatMessageType.USER.name())
+                                    .content(userMessage)
+                                    .build());
+
+                    // 处理 TokenStream
+                    StringBuffer finalContentBuffer = new StringBuffer();
+                    codeGenerateAiService.chat(appId, userMessage)
+                            // TODO 预留能力，以后看看要不要加上
+                            // .onPartialThinking(partialThinking -> {
+                            // // 处理模型的 thinking 片段
+                            // })
+                            .onPartialResponse(partialResponse -> {
+                                // 处理模型生成的文本片段，后端留存后，再直接发送给前端
+                                finalContentBuffer.append(partialResponse);
+                                stringFluxSink.next(partialResponse);
+                            })
+                            .beforeToolExecution(beforeToolExecution -> {
+                                // 工具执行前
+                                ToolExecutionRequest req = beforeToolExecution.request();
+                                String toolName = req.name();
+                                String argumentsJsonStr = req.arguments();
+                                String content = aiToolRegistry.getByName(toolName)
+                                        .formatRequest(JSONUtil.parseObj(argumentsJsonStr));
+                                finalContentBuffer.append(content);
+                                stringFluxSink.next(content);
+                            })
+                            .onToolExecuted(toolExecution -> {
+                                // 工具执行后
+                                ToolExecutionRequest req = toolExecution.request();
+                                String toolName = req.name();
+                                String argumentsJsonStr = req.arguments();
+                                String result = toolExecution.result();
+
+                                String content = aiToolRegistry.getByName(toolName)
+                                        .formatResponse(JSONUtil.parseObj(argumentsJsonStr), result);
+                                finalContentBuffer.append(content);
+                                stringFluxSink.next(content);
+                            })
+                            .onCompleteResponse(response -> {
+                                try {
+                                    // AI 回复结束
+                                    log.debug("AI 最终输出的内容为：{}", response.aiMessage().text());
+                                    // 存储 AI 完整回复内容
+                                    appChatMessageService.save(
+                                            AppChatMessage.builder()
+                                                    .appId(appId)
+                                                    .userId(userId)
+                                                    .role(ChatMessageType.AI.name())
+                                                    .content(finalContentBuffer.toString())
+                                                    .build());
+                                    stringFluxSink.complete();
+                                } finally {
+                                    releaseAppChatSemaphore.run();
+                                }
+                            })
+                            .onError(error -> {
+                                try {
+                                    // 回复出现异常时
+                                    log.error("AI 回复时出现异常，userId={}, appId={}", userId, appId, error);
+                                    String errorContent = "\n\n【错误】AI 回复失败，请稍后重试。\n";
+                                    finalContentBuffer.append(errorContent);
+                                    // 通知前端显示错误信息
+                                    stringFluxSink.next(errorContent);
+
+                                    // 错误时也要保存一条 AI 消息
+                                    appChatMessageService.save(
+                                            AppChatMessage.builder()
+                                                    .appId(appId)
+                                                    .userId(userId)
+                                                    .role(ChatMessageType.AI.name())
+                                                    .content(finalContentBuffer.toString())
+                                                    .build());
+                                    stringFluxSink.complete();
+                                } finally {
+                                    releaseAppChatSemaphore.run();
+                                }
+                            }).start();
+                } catch (Exception e) {
+                    releaseAppChatSemaphore.run();
+                    stringFluxSink.error(e);
+                }
+            });
+        });
+    }
 }
