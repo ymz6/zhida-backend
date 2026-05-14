@@ -2,8 +2,10 @@ package org.ymz.app.converter;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.ymz.app.model.dto.app.AppChatMessageVO;
 import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.entity.App;
+import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.entity.User;
 
 /**
@@ -19,4 +21,6 @@ public interface AppConverter {
     @Mapping(target = "id", source = "app.id")
     @Mapping(target = "author", source = "author")
     AppVO toAppVO(App app, User author);
+
+    AppChatMessageVO toAppChatMessageVO(AppChatMessage message);
 }

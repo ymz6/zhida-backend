@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.ymz.app.model.dto.app.*;
+import org.ymz.app.model.dto.page.CursorResult;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
@@ -164,14 +165,13 @@ public class AppController {
         return appOperationService.chat(authContext.getUserId(), appId, request);
     }
 
-    // 要重新设计
-    // @GetMapping("/{appId}/messages")
-    // @Operation(operationId = "listAppMessages")
-    // public Response<CursorResult<AppChatMessageInfo>> listAppMessages(
-    // @PathVariable Long appId,
-    // @Validated ListAppMessagesRequest request) {
-    // AuthContext authContext = AuthContextHolder.get();
-    // return Response.ok(appQueryService.listAppMessages(authContext.getUserId(),
-    // appId, request));
-    // }
+    // 查询应用聊天消息
+    @GetMapping("/{appId}/messages")
+    @Operation(operationId = "listAppMessages")
+    public Response<CursorResult<AppChatMessageVO>> listAppMessages(
+            @PathVariable Long appId,
+            @Validated ListAppMessagesRequest request) {
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appQueryService.listAppMessages(authContext, appId, request));
+    }
 }

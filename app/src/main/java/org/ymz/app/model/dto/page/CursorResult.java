@@ -18,16 +18,16 @@ public class CursorResult<T> {
     private List<T> list;
 
     /**
-     * 下一次查询更早数据时传入的游标。
+     * 下一批数据查询游标；没有更多数据时为 null。
      */
-    private Long nextCursor;
+    private String nextCursor;
 
     /**
-     * 是否还有更早数据。
+     * 是否还有更多数据。
      */
     private boolean hasMore;
 
-    public static <T> CursorResult<T> of(List<T> list, Long nextCursor, boolean hasMore) {
+    public static <T> CursorResult<T> of(List<T> list, String nextCursor, boolean hasMore) {
         CursorResult<T> result = new CursorResult<>();
         result.setList(list);
         result.setNextCursor(nextCursor);
