@@ -10,8 +10,9 @@ import org.ymz.app.model.dto.app.AppChatMessageVO;
 import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppsRequest;
-import org.ymz.app.model.dto.page.PageQuery;
+import org.ymz.app.model.dto.app.ListCasesRequest;
 import org.ymz.app.model.dto.page.CursorResult;
+import org.ymz.app.model.dto.page.PageQuery;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
@@ -65,24 +66,30 @@ public class AppQueryService {
         return appConverter.toAppVO(app, author);
     }
 
-    public PageResult<AppVO> listCases(PageQuery request) {
+    public PageResult<AppVO> listCases(ListCasesRequest request) {
         QueryWrapper query = QueryWrapper.create()
                 .select(APP.ALL_COLUMNS)
                 .from(APP)
+                // 案例广场只展示审核通过的公开应用，并按可选参数过滤。
                 .where(APP.AUDIT_STATUS.eq(AppAuditStatus.APPROVED.getCode()))
+                .and(APP.NAME.like(request.getKeyword(), If::hasText))
                 .orderBy(APP.FEATURED.desc(), APP.FEATURED_AT.desc(), APP.PUBLISHED_AT.desc());
+
+        if (Boolean.TRUE.equals(request.getFeaturedOnly())) {
+            query.and(APP.FEATURED.eq(true));
+        }
 
         Page<App> page = appService.page(request.toPage(), query);
         return toAppPageResult(page);
     }
 
-    public PageResult<AppVO> listFeaturedCases(PageQuery request) {
+    public PageResult<AppVO> listMyCases(AuthContext authContext, PageQuery request) {
         QueryWrapper query = QueryWrapper.create()
                 .select(APP.ALL_COLUMNS)
                 .from(APP)
-                .where(APP.AUDIT_STATUS.eq(AppAuditStatus.APPROVED.getCode()))
-                .and(APP.FEATURED.eq(true))
-                .orderBy(APP.FEATURED_AT.desc(), APP.PUBLISHED_AT.desc());
+                // 我的案例就是当前用户创建的应用，不按审核状态过滤。
+                .where(APP.USER_ID.eq(authContext.getUserId()))
+                .orderBy(APP.CREATED_AT.desc());
 
         Page<App> page = appService.page(request.toPage(), query);
         return toAppPageResult(page);

@@ -6,8 +6,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.ymz.app.model.dto.app.AppVO;
+import org.ymz.app.model.dto.app.ListCasesRequest;
 import org.ymz.app.model.dto.page.PageQuery;
 import org.ymz.app.model.dto.page.PageResult;
+import org.ymz.app.security.AuthContext;
+import org.ymz.app.security.AuthContextHolder;
+import org.ymz.app.security.LoginRequired;
 import org.ymz.app.service.AppQueryService;
 import org.ymz.app.web.response.Response;
 
@@ -26,14 +30,16 @@ public class CaseController {
 
     @GetMapping
     @Operation(operationId = "listCases")
-    public Response<PageResult<AppVO>> listCases(@Validated PageQuery request) {
+    public Response<PageResult<AppVO>> listCases(@Validated ListCasesRequest request) {
         return Response.ok(appQueryService.listCases(request));
     }
 
-    @GetMapping("/featured")
-    @Operation(operationId = "listFeaturedCases")
-    public Response<PageResult<AppVO>> listFeaturedCases(@Validated PageQuery request) {
-        return Response.ok(appQueryService.listFeaturedCases(request));
+    @LoginRequired
+    @GetMapping("/my")
+    @Operation(operationId = "listMyCases")
+    public Response<PageResult<AppVO>> listMyCases(@Validated PageQuery request) {
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appQueryService.listMyCases(authContext, request));
     }
 
     // 案例详情使用应用 ID 查询，但只返回已公开的应用，区别于 /apps/{appId} 的应用管理详情。
