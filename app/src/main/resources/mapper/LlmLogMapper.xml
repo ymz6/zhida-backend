@@ -4,4 +4,42 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.ymz.app.mapper.LlmLogMapper">
 
+    <select id="selectOverview" resultType="org.ymz.app.model.dto.monitoring.LlmLogOverviewVO">
+        select
+            coalesce(sum(total_tokens), 0) as totalTokens,
+            coalesce(sum(input_tokens), 0) as inputTokens,
+            coalesce(sum(output_tokens), 0) as outputTokens,
+            case
+                when coalesce(sum(total_tokens), 0) = 0 then 0.0
+                else coalesce(sum(input_tokens), 0) * 1.0 / coalesce(sum(total_tokens), 0)
+            end as inputTokenRatio,
+            case
+                when coalesce(sum(total_tokens), 0) = 0 then 0.0
+                else coalesce(sum(output_tokens), 0) * 1.0 / coalesce(sum(total_tokens), 0)
+            end as outputTokenRatio,
+            count(*) as totalCalls,
+            coalesce(sum(case when status = 'SUCCESS' then 1 else 0 end), 0) as successCalls,
+            coalesce(sum(case when status = 'FAILED' then 1 else 0 end), 0) as failedCalls,
+            case
+                when count(*) = 0 then 0.0
+                else sum(case when status = 'SUCCESS' then 1 else 0 end) * 1.0 / count(*)
+            end as successRate,
+            avg(case when status = 'SUCCESS' then duration_millis else null end) as averageDurationMillis
+        from llm_log
+        where created_at &gt;= #{startTime}
+          and created_at &lt; #{endTime}
+    </select>
+
+    <select id="selectModelCallCounts" resultType="org.ymz.app.model.dto.monitoring.LlmModelCallCountVO">
+        select
+            model_name as modelName,
+            count(*) as callCount
+        from llm_log
+        where created_at &gt;= #{startTime}
+          and created_at &lt; #{endTime}
+          and model_name is not null
+        group by model_name
+        order by callCount desc, model_name asc
+    </select>
+
 </mapper>
