@@ -54,6 +54,9 @@ public class AppAuditService {
                 && !AppAuditStatus.REJECTED.getCode().equals(app.getAuditStatus())) {
             throw BusinessException.of(ResultCode.INVALID_PARAM, "当前应用状态不可提交审核");
         }
+        if (app.getDeployedAt() == null || StrUtil.isBlank(app.getDeployKey())) {
+            throw BusinessException.of(ResultCode.INVALID_PARAM, "请先部署应用后再提交审核");
+        }
         LocalDateTime now = LocalDateTime.now();
         if (UserRole.ADMIN.equals(authContext.getUserRole())) {
             // 管理员提交时直接通过审核，并默认设为精选。

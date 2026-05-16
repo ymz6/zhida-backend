@@ -53,14 +53,16 @@ public class AppController {
     @GetMapping
     @Operation(operationId = "listApps")
     public Response<PageResult<AppVO>> listApps(@Validated ListAppsRequest request) {
-        return Response.ok(appQueryService.listApps(request));
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appQueryService.listApps(authContext, request));
     }
 
     // 查询应用详情
     @GetMapping("/{appId}")
     @Operation(operationId = "getApp")
     public Response<AppVO> getApp(@PathVariable Long appId) {
-        return Response.ok(appQueryService.getApp(appId));
+        AuthContext authContext = AuthContextHolder.get();
+        return Response.ok(appQueryService.getApp(authContext, appId));
     }
 
     // TODO 后续优化想法：创建应用是一个长耗时操作（因为初始化应用的逻辑在），我想可否通过 SSE 返回进度，提升用户体验？

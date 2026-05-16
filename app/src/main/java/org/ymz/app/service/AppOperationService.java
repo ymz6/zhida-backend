@@ -188,7 +188,7 @@ public class AppOperationService {
                         .id(appId)
                         .name(appName)
                         .build());
-        return appQueryService.getApp(appId);
+        return appQueryService.getApp(authContext, appId);
     }
 
     /**

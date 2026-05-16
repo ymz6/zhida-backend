@@ -46,20 +46,25 @@ public class AppQueryService {
     private final AppChatMessageService appChatMessageService;
     private final AppConverter appConverter;
 
-    public PageResult<AppVO> listApps(ListAppsRequest request) {
+    public PageResult<AppVO> listApps(AuthContext authContext, ListAppsRequest request) {
         QueryWrapper query = QueryWrapper.create()
                 .select(APP.ALL_COLUMNS)
                 .from(APP)
+                .where(APP.USER_ID.eq(authContext.getUserId(), !UserRole.ADMIN.equals(authContext.getUserRole())))
                 .orderBy(APP.CREATED_AT.desc());
 
         Page<App> page = appService.page(request.toPage(), query);
         return toAppPageResult(page);
     }
 
-    public AppVO getApp(Long appId) {
+    public AppVO getApp(AuthContext authContext, Long appId) {
         App app = appService.getById(appId);
         if (app == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");
+        }
+        if (!app.getUserId().equals(authContext.getUserId())
+                && !UserRole.ADMIN.equals(authContext.getUserRole())) {
+            throw BusinessException.of(ResultCode.NO_PERMISSION);
         }
 
         User author = userService.getById(app.getUserId());
@@ -72,6 +77,9 @@ public class AppQueryService {
                 .from(APP)
                 // 案例广场只展示审核通过的公开应用，并按可选参数过滤。
                 .where(APP.AUDIT_STATUS.eq(AppAuditStatus.APPROVED.getCode()))
+                .and(APP.DEPLOYED_AT.isNotNull())
+                .and(APP.DEPLOY_KEY.isNotNull())
+                .and(APP.DEPLOY_KEY.ne(""))
                 .and(APP.NAME.like(request.getKeyword(), If::hasText))
                 .orderBy(APP.FEATURED.desc(), APP.FEATURED_AT.desc(), APP.PUBLISHED_AT.desc());
 
@@ -103,7 +111,10 @@ public class AppQueryService {
                 .select(APP.ALL_COLUMNS)
                 .from(APP)
                 .where(APP.ID.eq(appId))
-                .and(APP.AUDIT_STATUS.eq(AppAuditStatus.APPROVED.getCode()));
+                .and(APP.AUDIT_STATUS.eq(AppAuditStatus.APPROVED.getCode()))
+                .and(APP.DEPLOYED_AT.isNotNull())
+                .and(APP.DEPLOY_KEY.isNotNull())
+                .and(APP.DEPLOY_KEY.ne(""));
         App app = appService.getOne(query);
         if (app == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "案例不存在");
