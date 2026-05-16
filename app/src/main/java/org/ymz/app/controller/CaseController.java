@@ -7,7 +7,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.dto.app.ListCasesRequest;
-import org.ymz.app.model.dto.page.PageQuery;
+import org.ymz.app.model.dto.app.ListMyCasesRequest;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.security.AuthContext;
 import org.ymz.app.security.AuthContextHolder;
@@ -37,7 +37,7 @@ public class CaseController {
     @LoginRequired
     @GetMapping("/my")
     @Operation(operationId = "listMyCases")
-    public Response<PageResult<AppVO>> listMyCases(@Validated PageQuery request) {
+    public Response<PageResult<AppVO>> listMyCases(@Validated ListMyCasesRequest request) {
         AuthContext authContext = AuthContextHolder.get();
         return Response.ok(appQueryService.listMyCases(authContext, request));
     }

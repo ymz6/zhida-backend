@@ -11,8 +11,8 @@ import org.ymz.app.model.dto.app.AppVO;
 import org.ymz.app.model.dto.app.ListAppMessagesRequest;
 import org.ymz.app.model.dto.app.ListAppsRequest;
 import org.ymz.app.model.dto.app.ListCasesRequest;
+import org.ymz.app.model.dto.app.ListMyCasesRequest;
 import org.ymz.app.model.dto.page.CursorResult;
-import org.ymz.app.model.dto.page.PageQuery;
 import org.ymz.app.model.dto.page.PageResult;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
@@ -83,12 +83,14 @@ public class AppQueryService {
         return toAppPageResult(page);
     }
 
-    public PageResult<AppVO> listMyCases(AuthContext authContext, PageQuery request) {
+    public PageResult<AppVO> listMyCases(AuthContext authContext, ListMyCasesRequest request) {
+        Integer statusCode = request.getStatus() == null ? null : request.getStatus().getCode();
         QueryWrapper query = QueryWrapper.create()
                 .select(APP.ALL_COLUMNS)
                 .from(APP)
-                // 我的案例就是当前用户创建的应用，不按审核状态过滤。
+                // 我的案例默认查当前用户全部应用，传入状态时按审核状态过滤。
                 .where(APP.USER_ID.eq(authContext.getUserId()))
+                .and(APP.AUDIT_STATUS.eq(statusCode, If::notNull))
                 .orderBy(APP.CREATED_AT.desc());
 
         Page<App> page = appService.page(request.toPage(), query);
