@@ -21,6 +21,7 @@ import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.AppChatMessage;
 import org.ymz.app.model.enums.UserRole;
 import org.ymz.app.model.enums.app.AppAuditStatus;
+import org.ymz.app.model.enums.app.ChatStreamMessageType;
 import org.ymz.app.model.enums.app.FileNodeType;
 import org.ymz.app.model.enums.oss.BucketType;
 import org.ymz.app.oss.OssClient;
@@ -551,7 +552,7 @@ public class AppOperationService {
      * ChatMemory 损坏。
      * 因此我应该对这个重要的聊天方法加上合适的并发限制
      */
-    public Flux<String> chat(Long userId, Long appId, ChatRequest request) {
+    public Flux<ChatStreamMessage> chat(Long userId, Long appId, ChatRequest request) {
         // 校验应用是否存在
         App app = appService.getById(appId);
         if (app == null) {
@@ -584,7 +585,7 @@ public class AppOperationService {
             // 退出工具调用成功了么？
             AtomicBoolean exitPassed = new AtomicBoolean(false);
 
-            return Flux.create(stringFluxSink -> {
+            return Flux.create(chatFluxSink -> {
                 try {
                     // 拿到当前 appId 的生成许可后，再记录用户消息，避免被拒绝的并发请求污染对话记录。
                     appChatMessageService.save(
@@ -596,19 +597,26 @@ public class AppOperationService {
                                     .build());
 
                     // 处理 TokenStream
+                    StringBuffer reasoningContentBuffer = new StringBuffer();
                     StringBuffer finalContentBuffer = new StringBuffer();
                     InvocationParameters parameters = InvocationParameters.from(Map.of(
                             "userId", userId
                     ));
                     codeGenerateAiService.chat(appId, userMessage, parameters)
-                            // TODO 预留能力，以后看看要不要加上
-                            // .onPartialThinking(partialThinking -> {
-                            // // 处理模型的 thinking 片段
-                            // })
+                            .onPartialThinking(partialThinking -> {
+                                // 思考内容单独发送和留存，便于前端分区展示。
+                                String thinkingText = partialThinking.text();
+                                reasoningContentBuffer.append(thinkingText);
+                                chatFluxSink.next(ChatStreamMessage.of(
+                                        ChatStreamMessageType.REASONING,
+                                        thinkingText));
+                            })
                             .onPartialResponse(partialResponse -> {
                                 // 处理模型生成的文本片段，后端留存后，再直接发送给前端
                                 finalContentBuffer.append(partialResponse);
-                                stringFluxSink.next(partialResponse);
+                                chatFluxSink.next(ChatStreamMessage.of(
+                                        ChatStreamMessageType.CONTENT,
+                                        partialResponse));
                             })
                             .beforeToolExecution(beforeToolExecution -> {
                                 // 工具执行前
@@ -618,7 +626,9 @@ public class AppOperationService {
                                 String content = aiToolRegistry.getByName(toolName)
                                         .formatRequest(JSONUtil.parseObj(argumentsJsonStr));
                                 finalContentBuffer.append(content);
-                                stringFluxSink.next(content);
+                                chatFluxSink.next(ChatStreamMessage.of(
+                                        ChatStreamMessageType.CONTENT,
+                                        content));
                             })
                             .onToolExecuted(toolExecution -> {
                                 // 工具执行后
@@ -636,7 +646,9 @@ public class AppOperationService {
                                 String content = aiToolRegistry.getByName(toolName)
                                         .formatResponse(JSONUtil.parseObj(argumentsJsonStr), result);
                                 finalContentBuffer.append(content);
-                                stringFluxSink.next(content);
+                                chatFluxSink.next(ChatStreamMessage.of(
+                                        ChatStreamMessageType.CONTENT,
+                                        content));
                             })
                             .onCompleteResponse(response -> {
                                 try {
@@ -657,11 +669,14 @@ public class AppOperationService {
                                                         .appId(appId)
                                                         .userId(userId)
                                                         .role(ChatMessageType.AI.name())
+                                                        .reasoningContent(reasoningContentBuffer.toString())
                                                         .content(finalContentBuffer.toString())
                                                         .build());
 
-                                        stringFluxSink.next(guardContent);
-                                        stringFluxSink.complete();
+                                        chatFluxSink.next(ChatStreamMessage.of(
+                                                ChatStreamMessageType.CONTENT,
+                                                guardContent));
+                                        chatFluxSink.complete();
                                         return;
                                     }
                                     // 存储 AI 完整回复内容
@@ -670,9 +685,10 @@ public class AppOperationService {
                                                     .appId(appId)
                                                     .userId(userId)
                                                     .role(ChatMessageType.AI.name())
+                                                    .reasoningContent(reasoningContentBuffer.toString())
                                                     .content(finalContentBuffer.toString())
                                                     .build());
-                                    stringFluxSink.complete();
+                                    chatFluxSink.complete();
                                 } finally {
                                     releaseAppChatSemaphore.run();
                                 }
@@ -684,7 +700,9 @@ public class AppOperationService {
                                     String errorContent = "\n\n【错误】AI 回复失败，请稍后重试。\n";
                                     finalContentBuffer.append(errorContent);
                                     // 通知前端显示错误信息
-                                    stringFluxSink.next(errorContent);
+                                    chatFluxSink.next(ChatStreamMessage.of(
+                                            ChatStreamMessageType.CONTENT,
+                                            errorContent));
 
                                     // 错误时也要保存一条 AI 消息
                                     appChatMessageService.save(
@@ -692,16 +710,17 @@ public class AppOperationService {
                                                     .appId(appId)
                                                     .userId(userId)
                                                     .role(ChatMessageType.AI.name())
+                                                    .reasoningContent(reasoningContentBuffer.toString())
                                                     .content(finalContentBuffer.toString())
                                                     .build());
-                                    stringFluxSink.complete();
+                                    chatFluxSink.complete();
                                 } finally {
                                     releaseAppChatSemaphore.run();
                                 }
                             }).start();
                 } catch (Exception e) {
                     releaseAppChatSemaphore.run();
-                    stringFluxSink.error(e);
+                    chatFluxSink.error(e);
                 }
             });
         });

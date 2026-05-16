@@ -60,9 +60,6 @@ public class LLMsFactoryConfig {
                 .temperature(0.1)
                 .maxTokens(16384)
                 .timeout(Duration.ofMinutes(30))
-                .customParameters(Map.of(
-                        // 暂时禁用思考模式，后续会考虑打开
-                        "thinking", Map.of("type", "disabled")))
                 .logRequests(false)
                 .logResponses(false)
                 .build();

@@ -164,7 +164,7 @@ public class AppController {
     // 通过聊天生成应用
     @PostMapping(value = "/{appId}/chat-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(operationId = "chatWithApp")
-    public Flux<String> chatWithApp(@PathVariable Long appId, @RequestBody @Valid ChatRequest request) {
+    public Flux<ChatStreamMessage> chatWithApp(@PathVariable Long appId, @RequestBody @Valid ChatRequest request) {
         AuthContext authContext = AuthContextHolder.get();
         return appOperationService.chat(authContext.getUserId(), appId, request);
     }
