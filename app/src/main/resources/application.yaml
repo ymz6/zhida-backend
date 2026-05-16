@@ -39,7 +39,7 @@ jwt:
   issuer: zhida
 oss:
   uri: http://localhost:9000
-  access-key: jO48DZ09s65NhtvWYxub
-  secret-key: Y5Oa1HvSyRJz8sZ7jcMACQTbtfNhgemFK0VwWnxi
+  access-key: YilU6lUh4grbHWqiIB2t
+  secret-key: ggnbl2ZN1zIFfphBPLRIOEpj1q3CFrQ5GYgjVPdm
   public-bucket: zhida-public
   private-bucket: zhida-private
