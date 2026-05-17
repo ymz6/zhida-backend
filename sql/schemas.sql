@@ -112,4 +112,21 @@ create table app_chat_message
     comment '应用对话消息表'
     collate = utf8mb4_unicode_ci;
 
+-- 用户关注关系表
+create table user_follow
+(
+    id          bigint auto_increment comment '主键 ID'
+        primary key,
+    follower_id bigint                             not null comment '关注者用户 ID',
+    followee_id bigint                             not null comment '被关注者用户 ID',
+    created_at  datetime default CURRENT_TIMESTAMP not null comment '关注时间',
+    constraint uk_follower_followee
+        unique (follower_id, followee_id)
+)
+    comment '用户关注关系表' collate = utf8mb4_unicode_ci;
 
+create index idx_user_follow_follower_created
+    on user_follow (follower_id, created_at);
+
+create index idx_user_follow_followee_created
+    on user_follow (followee_id, created_at);

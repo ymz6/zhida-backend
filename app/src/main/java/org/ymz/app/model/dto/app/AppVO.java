@@ -1,7 +1,7 @@
 package org.ymz.app.model.dto.app;
 
 import lombok.Data;
-import org.ymz.app.model.dto.user.UserVO;
+import org.ymz.app.model.dto.user.UserBriefVO;
 
 import java.time.LocalDateTime;
 
@@ -14,7 +14,7 @@ public class AppVO {
 
     private Long id;
 
-    private UserVO author;
+    private UserBriefVO author;
 
     private String name;
 

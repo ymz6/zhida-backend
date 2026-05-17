@@ -45,6 +45,7 @@ public class AppQueryService {
     private final UserService userService;
     private final AppChatMessageService appChatMessageService;
     private final AppConverter appConverter;
+    private final UserFollowService userFollowService;
 
     public PageResult<AppVO> listApps(AuthContext authContext, ListAppsRequest request) {
         QueryWrapper query = QueryWrapper.create()
@@ -54,7 +55,7 @@ public class AppQueryService {
                 .orderBy(APP.CREATED_AT.desc());
 
         Page<App> page = appService.page(request.toPage(), query);
-        return toAppPageResult(page);
+        return toAppPageResult(page, authContext.getUserId());
     }
 
     public AppVO getApp(AuthContext authContext, Long appId) {
@@ -68,7 +69,7 @@ public class AppQueryService {
         }
 
         User author = userService.getById(app.getUserId());
-        return appConverter.toAppVO(app, author);
+        return toAppVO(app, author, authContext.getUserId());
     }
 
     public PageResult<AppVO> listCases(ListCasesRequest request) {
@@ -88,7 +89,7 @@ public class AppQueryService {
         }
 
         Page<App> page = appService.page(request.toPage(), query);
-        return toAppPageResult(page);
+        return toAppPageResult(page, null);
     }
 
     public PageResult<AppVO> listMyCases(AuthContext authContext, ListMyCasesRequest request) {
@@ -102,7 +103,7 @@ public class AppQueryService {
                 .orderBy(APP.CREATED_AT.desc());
 
         Page<App> page = appService.page(request.toPage(), query);
-        return toAppPageResult(page);
+        return toAppPageResult(page, authContext.getUserId());
     }
 
     public AppVO getCase(Long appId) {
@@ -121,7 +122,7 @@ public class AppQueryService {
         }
 
         User author = userService.getById(app.getUserId());
-        return appConverter.toAppVO(app, author);
+        return toAppVO(app, author, null);
     }
 
     public CursorResult<AppChatMessageVO> listAppMessages(
@@ -170,7 +171,7 @@ public class AppQueryService {
         return CursorResult.of(list, nextCursor, hasMore);
     }
 
-    private PageResult<AppVO> toAppPageResult(Page<App> page) {
+    private PageResult<AppVO> toAppPageResult(Page<App> page, Long currentUserId) {
         // 分页场景批量加载作者，避免每条应用单独查询用户。
         List<Long> userIds = page.getRecords().stream()
                 .map(App::getUserId)
@@ -180,10 +181,43 @@ public class AppQueryService {
                 ? Map.of()
                 : userService.listByIds(userIds).stream()
                         .collect(Collectors.toMap(User::getId, user -> user));
+        Map<Long, Boolean> followingMap = currentUserId == null || userIds.isEmpty()
+                ? Map.of()
+                : userFollowService.batchGetFollowingStatus(currentUserId, userIds);
+        Map<Long, Boolean> followedMap = currentUserId == null || userIds.isEmpty()
+                ? Map.of()
+                : userFollowService.batchGetFollowedStatus(currentUserId, userIds);
 
         return PageResult.of(page, app -> {
             User author = userMap.get(app.getUserId());
-            return appConverter.toAppVO(app, author);
+            AppVO vo = appConverter.toAppVO(app, author);
+            fillAuthorFollowStatus(vo, followingMap, followedMap);
+            return vo;
         });
+    }
+
+    private AppVO toAppVO(App app, User author, Long currentUserId) {
+        AppVO vo = appConverter.toAppVO(app, author);
+        if (currentUserId == null || author == null) {
+            return vo;
+        }
+        List<Long> authorIds = List.of(author.getId());
+        fillAuthorFollowStatus(
+                vo,
+                userFollowService.batchGetFollowingStatus(currentUserId, authorIds),
+                userFollowService.batchGetFollowedStatus(currentUserId, authorIds));
+        return vo;
+    }
+
+    private void fillAuthorFollowStatus(
+            AppVO vo,
+            Map<Long, Boolean> followingMap,
+            Map<Long, Boolean> followedMap) {
+        if (vo == null || vo.getAuthor() == null || vo.getAuthor().getId() == null) {
+            return;
+        }
+        Long authorId = vo.getAuthor().getId();
+        vo.getAuthor().setIsFollowing(Boolean.TRUE.equals(followingMap.get(authorId)));
+        vo.getAuthor().setIsFollowed(Boolean.TRUE.equals(followedMap.get(authorId)));
     }
 }
