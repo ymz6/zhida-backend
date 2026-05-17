@@ -116,17 +116,14 @@ public class AppOperationService {
         // 初始化应用工作区
         // 将项目模板（project-template/zhida-react-project）复制到应用工作区（tmp/app-workspace/{appId}）
         Long appId = app.getId();
+        Path workspaceRootPath = appPathProperties.getTmpDir().resolve("app-workspace").normalize();
+        Path workspacePath = workspaceRootPath.resolve(String.valueOf(appId)).normalize();
         try {
             log.debug("开始初始化应用{}的工作区", appId);
             Path templatePath = appPathProperties.getTemplateDir();
             if (!Files.isDirectory(templatePath)) {
                 throw new IllegalStateException("项目模板目录不存在");
             }
-
-            Path workspacePath = appPathProperties.getTmpDir()
-                    .resolve("app-workspace")
-                    .resolve(String.valueOf(appId))
-                    .normalize();
 
             try (Stream<Path> stream = Files.walk(templatePath)) {
                 log.debug("复制项目模板中...");
@@ -159,8 +156,28 @@ public class AppOperationService {
                 throw new IllegalStateException("依赖安装失败：pnpm install");
             }
         } catch (Exception e) {
-            // TODO 毕设演示场景下工作区初始化失败概率较低，暂不做应用记录回滚；后续可补充失败后的工作区清理和数据库记录回滚。
             log.warn("应用工作区初始化失败: appId={}", appId, e);
+            try {
+                // 数据库记录已经创建成功，初始化失败时必须回滚，避免留下僵尸应用。
+                boolean removed = appService.removeById(appId);
+                if (!removed) {
+                    log.warn("应用创建失败后数据库记录回滚失败: appId={}", appId);
+                }
+            } catch (Exception rollbackException) {
+                log.warn("应用创建失败后数据库记录回滚异常: appId={}", appId, rollbackException);
+            }
+            try {
+                if (workspacePath.startsWith(workspaceRootPath) && Files.exists(workspacePath)) {
+                    try (Stream<Path> stream = Files.walk(workspacePath)) {
+                        // 先删子文件和子目录，再删父目录，避免目录非空导致删除失败。
+                        for (Path item : stream.sorted(Comparator.reverseOrder()).toList()) {
+                            Files.deleteIfExists(item);
+                        }
+                    }
+                }
+            } catch (Exception cleanupException) {
+                log.warn("应用创建失败后工作区清理异常: appId={}", appId, cleanupException);
+            }
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, "应用工作区初始化失败");
         }
         log.debug("应用{}工作区初始化完成", appId);
