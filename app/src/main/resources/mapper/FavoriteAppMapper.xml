@@ -64,6 +64,18 @@
             and a.name like concat('%', #{keyword}, '%')
         </if>
         order by fa.created_at desc
+        limit #{pageOffset}, #{pageSize}
+    </select>
+
+    <select id="paginateFavoriteApps_COUNT" resultType="long">
+        select count(1)
+        from favorite_app fa
+                 join app a on a.id = fa.app_id
+        where fa.favorite_id = #{favoriteId}
+          and <include refid="PublicCaseCondition"/>
+        <if test="keyword != null and keyword != ''">
+            and a.name like concat('%', #{keyword}, '%')
+        </if>
     </select>
 
     <select id="listFavoritesByUserIdAndAppId" resultType="org.ymz.app.model.dto.favorite.FavoriteVO">

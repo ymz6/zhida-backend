@@ -6,7 +6,9 @@ import org.apache.ibatis.annotations.Param;
 import org.ymz.app.model.dto.comment.CommentCountItem;
 import org.ymz.app.model.entity.Comment;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 评论映射层。
@@ -19,9 +21,19 @@ public interface CommentMapper extends BaseMapper<Comment> {
 
     List<Comment> listByIds(@Param("commentIds") List<Long> commentIds);
 
-    Page<Comment> paginateRootComments(Page<Comment> page, @Param("appId") Long appId);
+    default Page<Comment> paginateRootComments(Page<Comment> page, @Param("appId") Long appId) {
+        // 自定义 XML 分页必须走 xmlPaginate，避免 MyBatis 把 Page 返回值当单条记录处理。
+        Map<String, Object> params = new HashMap<>();
+        params.put("appId", appId);
+        return xmlPaginate("paginateRootComments", page, params);
+    }
 
-    Page<Comment> paginateReplies(Page<Comment> page, @Param("rootId") Long rootId);
+    default Page<Comment> paginateReplies(Page<Comment> page, @Param("rootId") Long rootId) {
+        // 自定义 XML 分页必须走 xmlPaginate，避免 MyBatis 把 Page 返回值当单条记录处理。
+        Map<String, Object> params = new HashMap<>();
+        params.put("rootId", rootId);
+        return xmlPaginate("paginateReplies", page, params);
+    }
 
     List<CommentCountItem> countRepliesByRootIds(@Param("rootIds") List<Long> rootIds);
 

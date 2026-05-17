@@ -31,6 +31,17 @@
             and u.nickname like concat('%', #{keyword}, '%')
         </if>
         order by f.created_at desc
+        limit #{pageOffset}, #{pageSize}
+    </select>
+
+    <select id="paginateFollowing_COUNT" resultType="long">
+        select count(1)
+        from user u
+                 join user_follow f on u.id = f.followee_id
+        where f.follower_id = #{userId}
+        <if test="keyword != null and keyword != ''">
+            and u.nickname like concat('%', #{keyword}, '%')
+        </if>
     </select>
 
     <select id="paginateFollowers" resultType="org.ymz.app.model.entity.User">
@@ -42,6 +53,17 @@
             and u.nickname like concat('%', #{keyword}, '%')
         </if>
         order by f.created_at desc
+        limit #{pageOffset}, #{pageSize}
+    </select>
+
+    <select id="paginateFollowers_COUNT" resultType="long">
+        select count(1)
+        from user u
+                 join user_follow f on u.id = f.follower_id
+        where f.followee_id = #{userId}
+        <if test="keyword != null and keyword != ''">
+            and u.nickname like concat('%', #{keyword}, '%')
+        </if>
     </select>
 
     <select id="listFolloweeIds" resultType="long">

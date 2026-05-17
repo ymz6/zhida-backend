@@ -26,6 +26,14 @@
         where app_id = #{appId}
           and root_id is null
         order by created_at desc
+        limit #{pageOffset}, #{pageSize}
+    </select>
+
+    <select id="paginateRootComments_COUNT" resultType="long">
+        select count(1)
+        from comment
+        where app_id = #{appId}
+          and root_id is null
     </select>
 
     <select id="paginateReplies" resultType="org.ymz.app.model.entity.Comment">
@@ -33,6 +41,13 @@
         from comment
         where root_id = #{rootId}
         order by created_at asc
+        limit #{pageOffset}, #{pageSize}
+    </select>
+
+    <select id="paginateReplies_COUNT" resultType="long">
+        select count(1)
+        from comment
+        where root_id = #{rootId}
     </select>
 
     <select id="countRepliesByRootIds" resultType="org.ymz.app.model.dto.comment.CommentCountItem">
