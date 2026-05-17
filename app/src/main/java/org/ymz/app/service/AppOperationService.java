@@ -47,6 +47,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static org.ymz.app.model.entity.table.AppTableDef.APP;
@@ -85,7 +86,24 @@ public class AppOperationService {
     /**
      * 创建应用
      */
-    public Long createApp(Long userId, CreateAppRequest request) {
+    public Flux<CreateAppStreamMessage> createApp(Long userId, CreateAppRequest request) {
+        return Flux.create(createAppFluxSink -> Thread.startVirtualThread(() -> {
+            try {
+                Long appId = createApp(userId, request, createAppFluxSink::next);
+                createAppFluxSink.next(CreateAppStreamMessage.done(appId, "应用创建完成"));
+                createAppFluxSink.complete();
+            } catch (BusinessException e) {
+                createAppFluxSink.next(CreateAppStreamMessage.error(e.getMessage()));
+                createAppFluxSink.complete();
+            } catch (Exception e) {
+                log.warn("应用创建失败: userId={}", userId, e);
+                createAppFluxSink.next(CreateAppStreamMessage.error("应用创建失败"));
+                createAppFluxSink.complete();
+            }
+        }));
+    }
+
+    private Long createApp(Long userId, CreateAppRequest request, Consumer<CreateAppStreamMessage> progressConsumer) {
         // 创建应用成功后返回应用 ID
         String initPrompt = request.getInitPrompt().trim();
         // 标题生成 AI Service 来对于用户初始提示词进行初筛
@@ -104,6 +122,7 @@ public class AppOperationService {
         if (!titleGenerateResult.isAccepted()) {
             throw BusinessException.of(ResultCode.INVALID_PARAM, titleGenerateResult.getReason().getDescription());
         }
+        progressConsumer.accept(CreateAppStreamMessage.progress("APP_CREATING", "正在创建应用"));
         App app = App.builder()
                 .name(titleGenerateResult.getTitle())
                 .initPrompt(initPrompt)
@@ -125,6 +144,7 @@ public class AppOperationService {
                 throw new IllegalStateException("项目模板目录不存在");
             }
 
+            progressConsumer.accept(CreateAppStreamMessage.progress("TEMPLATE_COPYING", "正在初始化项目模板"));
             try (Stream<Path> stream = Files.walk(templatePath)) {
                 log.debug("复制项目模板中...");
                 for (Path sourceItem : stream.toList()) {
@@ -140,6 +160,7 @@ public class AppOperationService {
             }
 
             // 安装项目依赖
+            progressConsumer.accept(CreateAppStreamMessage.progress("DEPENDENCY_INSTALLING", "正在安装依赖"));
             log.debug("依赖安装中...");
             String pnpm = System.getProperty("os.name").toLowerCase().contains("win") ? "pnpm.cmd" : "pnpm";
             Process process = new ProcessBuilder(pnpm, "install")

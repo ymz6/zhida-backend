@@ -65,14 +65,12 @@ public class AppController {
         return Response.ok(appQueryService.getApp(authContext, appId));
     }
 
-    // TODO 后续优化想法：创建应用是一个长耗时操作（因为初始化应用的逻辑在），我想可否通过 SSE 返回进度，提升用户体验？
-    // 以后所有耗时操作都可以考虑这样优化？
     // 创建应用 已经稳定
-    @PostMapping
+    @PostMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(operationId = "createApp")
-    public Response<Long> createApp(@RequestBody @Valid CreateAppRequest request) {
+    public Flux<CreateAppStreamMessage> createApp(@RequestBody @Valid CreateAppRequest request) {
         AuthContext authContext = AuthContextHolder.get();
-        return Response.ok(appOperationService.createApp(authContext.getUserId(), request));
+        return appOperationService.createApp(authContext.getUserId(), request);
     }
 
     // 编辑应用信息
