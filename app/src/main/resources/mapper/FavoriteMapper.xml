@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.ymz.app.mapper.FavoriteMapper">
+
+    <sql id="PublicCaseCondition">
+        a.audit_status = 2
+        and a.deployed_at is not null
+        and a.deploy_key is not null
+        and a.deploy_key != ''
+    </sql>
+
+    <sql id="FavoriteVOColumns">
+        f.id,
+        f.user_id as userId,
+        f.name,
+        f.description,
+        f.sort_order as sortOrder,
+        f.is_default as isDefault,
+        f.created_at as createdAt,
+        (
+            select count(1)
+            from favorite_app fa
+                     join app a on a.id = fa.app_id
+            where fa.favorite_id = f.id
+              and <include refid="PublicCaseCondition"/>
+        ) as appCount
+    </sql>
+
+    <select id="selectDefaultByUserId" resultType="org.ymz.app.model.entity.Favorite">
+        select *
+        from favorite
+        where user_id = #{userId}
+          and is_default = 1
+        limit 1
+    </select>
+
+    <select id="selectFavoriteById" resultType="org.ymz.app.model.entity.Favorite">
+        select *
+        from favorite
+        where id = #{favoriteId}
+        limit 1
+    </select>
+
+    <select id="countNormalByUserId" resultType="long">
+        select count(1)
+        from favorite
+        where user_id = #{userId}
+          and is_default = 0
+    </select>
+
+    <select id="countByUserIdAndName" resultType="long">
+        select count(1)
+        from favorite
+        where user_id = #{userId}
+          and name = #{name}
+        <if test="excludeFavoriteId != null">
+            and id != #{excludeFavoriteId}
+        </if>
+    </select>
+
+    <select id="listByUserIdWithAppCount" resultType="org.ymz.app.model.dto.favorite.FavoriteVO">
+        select
+        <include refid="FavoriteVOColumns"/>
+        from favorite f
+        where f.user_id = #{userId}
+        order by f.sort_order asc, f.created_at desc
+    </select>
+
+    <select id="selectFavoriteVO" resultType="org.ymz.app.model.dto.favorite.FavoriteVO">
+        select
+        <include refid="FavoriteVOColumns"/>
+        from favorite f
+        where f.user_id = #{userId}
+          and f.id = #{favoriteId}
+        limit 1
+    </select>
+</mapper>

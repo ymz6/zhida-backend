@@ -130,3 +130,41 @@ create index idx_user_follow_follower_created
 
 create index idx_user_follow_followee_created
     on user_follow (followee_id, created_at);
+
+-- 收藏夹表
+create table favorite
+(
+    id          bigint auto_increment comment '主键 ID'
+        primary key,
+    user_id     bigint                                not null comment '收藏夹拥有者用户 ID',
+    name        varchar(100)                          not null comment '收藏夹名称',
+    description text                                  null comment '收藏夹描述',
+    sort_order  int         default 0                 not null comment '排序值，越小越靠前',
+    is_default  tinyint(1)  default 0                 not null comment '是否默认收藏夹',
+    created_at  datetime    default CURRENT_TIMESTAMP not null comment '创建时间',
+    constraint uk_favorite_user_name
+        unique (user_id, name)
+)
+    comment '收藏夹表' collate = utf8mb4_unicode_ci;
+
+create index idx_favorite_user_sort
+    on favorite (user_id, sort_order, created_at);
+
+-- 收藏夹-应用关联表
+create table favorite_app
+(
+    id          bigint auto_increment comment '主键 ID'
+        primary key,
+    favorite_id bigint                             not null comment '收藏夹 ID',
+    app_id      bigint                             not null comment '应用 ID',
+    created_at  datetime default CURRENT_TIMESTAMP not null comment '收藏时间',
+    constraint uk_favorite_app
+        unique (favorite_id, app_id)
+)
+    comment '收藏夹应用关联表' collate = utf8mb4_unicode_ci;
+
+create index idx_favorite_app_favorite_created
+    on favorite_app (favorite_id, created_at);
+
+create index idx_favorite_app_app
+    on favorite_app (app_id);

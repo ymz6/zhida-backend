@@ -6,6 +6,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.ymz.app.converter.UserConverter;
 import org.ymz.app.model.enums.UserRole;
 import org.ymz.app.model.dto.auth.LoginRequest;
@@ -34,6 +35,7 @@ import static org.ymz.app.model.entity.table.UserTableDef.USER;
 @RequiredArgsConstructor
 public class AuthService {
     private final UserService userService;
+    private final FavoriteService favoriteService;
     private final JwtHelper jwtHelper;
     private final UserConverter userConverter;
     private final AccessTokenBlacklistManager accessTokenBlacklistManager;
@@ -41,6 +43,7 @@ public class AuthService {
     // 5小时
     private static final long ACCESS_TOKEN_EXPIRE_SECONDS = 5 * 60 * 60L;
 
+    @Transactional
     public void register(RegisterRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw BusinessException.of(ResultCode.INVALID_PARAM, "两次密码不一致");
@@ -62,6 +65,7 @@ public class AuthService {
         if (!userService.save(user)) {
             throw BusinessException.of(ResultCode.SYSTEM_ERROR, "保存新用户信息失败");
         }
+        favoriteService.createDefaultFavorite(user.getId());
     }
 
     public LoginResponse login(LoginRequest request) {

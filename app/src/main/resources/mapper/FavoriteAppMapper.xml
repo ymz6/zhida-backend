@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.ymz.app.mapper.FavoriteAppMapper">
+
+    <sql id="PublicCaseCondition">
+        a.audit_status = 2
+        and a.deployed_at is not null
+        and a.deploy_key is not null
+        and a.deploy_key != ''
+    </sql>
+
+    <sql id="FavoriteVOColumns">
+        f.id,
+        f.user_id as userId,
+        f.name,
+        f.description,
+        f.sort_order as sortOrder,
+        f.is_default as isDefault,
+        f.created_at as createdAt,
+        (
+            select count(1)
+            from favorite_app count_fa
+                     join app count_a on count_a.id = count_fa.app_id
+            where count_fa.favorite_id = f.id
+              and count_a.audit_status = 2
+              and count_a.deployed_at is not null
+              and count_a.deploy_key is not null
+              and count_a.deploy_key != ''
+        ) as appCount
+    </sql>
+
+    <select id="countByFavoriteIdAndAppId" resultType="long">
+        select count(1)
+        from favorite_app
+        where favorite_id = #{favoriteId}
+          and app_id = #{appId}
+    </select>
+
+    <insert id="insertFavoriteApp">
+        insert ignore into favorite_app (favorite_id, app_id)
+        values (#{favoriteId}, #{appId})
+    </insert>
+
+    <delete id="deleteByFavoriteId">
+        delete from favorite_app
+        where favorite_id = #{favoriteId}
+    </delete>
+
+    <delete id="deleteByFavoriteIdAndAppId">
+        delete from favorite_app
+        where favorite_id = #{favoriteId}
+          and app_id = #{appId}
+    </delete>
+
+    <select id="paginateFavoriteApps" resultType="org.ymz.app.model.entity.App">
+        select a.*
+        from favorite_app fa
+                 join app a on a.id = fa.app_id
+        where fa.favorite_id = #{favoriteId}
+          and <include refid="PublicCaseCondition"/>
+        <if test="keyword != null and keyword != ''">
+            and a.name like concat('%', #{keyword}, '%')
+        </if>
+        order by fa.created_at desc
+    </select>
+
+    <select id="listFavoritesByUserIdAndAppId" resultType="org.ymz.app.model.dto.favorite.FavoriteVO">
+        select
+        <include refid="FavoriteVOColumns"/>
+        from favorite f
+                 join favorite_app fa on fa.favorite_id = f.id
+                 join app a on a.id = fa.app_id
+        where f.user_id = #{userId}
+          and fa.app_id = #{appId}
+          and <include refid="PublicCaseCondition"/>
+        order by f.sort_order asc, f.created_at desc
+    </select>
+</mapper>
