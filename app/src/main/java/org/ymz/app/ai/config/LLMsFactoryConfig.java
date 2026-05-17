@@ -59,6 +59,10 @@ public class LLMsFactoryConfig {
                 .modelName("deepseek-v4-pro")
                 .temperature(0.1)
                 .maxTokens(16384)
+                // DeepSeek 思考模式在工具调用场景要求后续请求完整回传 reasoning_content。
+                .returnThinking(true)
+                .sendThinking(true)
+                .accumulateToolCallId(false)
                 .timeout(Duration.ofMinutes(30))
                 .logRequests(false)
                 .logResponses(false)
