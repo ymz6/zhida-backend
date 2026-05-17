@@ -168,3 +168,45 @@ create index idx_favorite_app_favorite_created
 
 create index idx_favorite_app_app
     on favorite_app (app_id);
+
+-- 评论表
+create table comment
+(
+    id         bigint auto_increment comment '主键 ID'
+        primary key,
+    app_id     bigint                                not null comment '应用 ID',
+    user_id    bigint                                not null comment '评论用户 ID',
+    parent_id  bigint                                null comment '直接父评论 ID，一级评论为空',
+    root_id    bigint                                null comment '根评论 ID，一级评论为空',
+    content    varchar(500)                          not null comment '评论内容',
+    created_at datetime    default CURRENT_TIMESTAMP not null comment '创建时间'
+)
+    comment '评论表' collate = utf8mb4_unicode_ci;
+
+create index idx_comment_app_root_created
+    on comment (app_id, root_id, created_at);
+
+create index idx_comment_root_created
+    on comment (root_id, created_at);
+
+create index idx_comment_parent
+    on comment (parent_id);
+
+create index idx_comment_user
+    on comment (user_id);
+
+-- 评论点赞表
+create table comment_like
+(
+    id         bigint auto_increment comment '主键 ID'
+        primary key,
+    user_id    bigint                                not null comment '点赞用户 ID',
+    comment_id bigint                                not null comment '评论 ID',
+    created_at datetime    default CURRENT_TIMESTAMP not null comment '点赞时间',
+    constraint uk_comment_like_user_comment
+        unique (user_id, comment_id)
+)
+    comment '评论点赞表' collate = utf8mb4_unicode_ci;
+
+create index idx_comment_like_comment
+    on comment_like (comment_id);

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.ymz.app.mapper.CommentLikeMapper">
+
+    <select id="countByUserIdAndCommentId" resultType="long">
+        select count(1)
+        from comment_like
+        where user_id = #{userId}
+          and comment_id = #{commentId}
+    </select>
+
+    <select id="countByCommentId" resultType="long">
+        select count(1)
+        from comment_like
+        where comment_id = #{commentId}
+    </select>
+
+    <insert id="insertLike">
+        insert ignore into comment_like (user_id, comment_id)
+        values (#{userId}, #{commentId})
+    </insert>
+
+    <delete id="deleteByUserIdAndCommentId">
+        delete from comment_like
+        where user_id = #{userId}
+          and comment_id = #{commentId}
+    </delete>
+
+    <delete id="deleteByCommentIds">
+        delete from comment_like
+        where comment_id in
+        <foreach collection="commentIds" item="commentId" open="(" separator="," close=")">
+            #{commentId}
+        </foreach>
+    </delete>
+
+    <select id="countByCommentIds" resultType="org.ymz.app.model.dto.comment.CommentCountItem">
+        select comment_id as commentId,
+               count(1) as count
+        from comment_like
+        where comment_id in
+        <foreach collection="commentIds" item="commentId" open="(" separator="," close=")">
+            #{commentId}
+        </foreach>
+        group by comment_id
+    </select>
+
+    <select id="listLikedCommentIds" resultType="long">
+        select comment_id
+        from comment_like
+        where user_id = #{userId}
+          and comment_id in
+        <foreach collection="commentIds" item="commentId" open="(" separator="," close=")">
+            #{commentId}
+        </foreach>
+    </select>
+</mapper>
