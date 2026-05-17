@@ -81,7 +81,6 @@ public class LlmLogAiServiceListenerRegistry {
 
         @Override
         public void onEvent(AiServiceResponseReceivedEvent event) {
-            InvocationContext context = event.invocationContext();
             RequestTrace trace = requestTraceMap.remove(event.request());
             Long durationMillis = System.currentTimeMillis() - trace.startTimeMillis();
             Long userId = trace.userId();
