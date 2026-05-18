@@ -20,6 +20,8 @@ public interface AppConverter {
      */
     @Mapping(target = "id", source = "app.id")
     @Mapping(target = "author", source = "author")
+    @Mapping(target = "previewUrl", ignore = true)
+    @Mapping(target = "deployUrl", ignore = true)
     AppVO toAppVO(App app, User author);
 
     AppChatMessageVO toAppChatMessageVO(AppChatMessage message);

@@ -62,7 +62,6 @@ import static org.ymz.app.model.entity.table.AppTableDef.APP;
 @RequiredArgsConstructor
 public class AppOperationService {
 
-    private static final String DEPLOY_HOSTNAME = "localhost";
     private static final Set<String> PREVIEWABLE_CONTENT_TYPES = Set.of(
             "application/json",
             "application/javascript",
@@ -82,6 +81,7 @@ public class AppOperationService {
     private final AppPathProperties appPathProperties;
     private final AppChatMessageService appChatMessageService;
     private final AiToolRegistry aiToolRegistry;
+    private final AppUrlBuilder appUrlBuilder;
 
     /**
      * 创建应用
@@ -543,7 +543,7 @@ public class AppOperationService {
                 }
             }
 
-            String deployUrl = "http://" + DEPLOY_HOSTNAME + "/" + deployKey + "/";
+            String deployUrl = appUrlBuilder.buildDeployUrl(deployKey);
             appService.updateById(App.builder()
                     .id(appId)
                     .deployKey(deployKey)

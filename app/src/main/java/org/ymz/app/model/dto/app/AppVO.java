@@ -18,7 +18,13 @@ public class AppVO {
 
     private String name;
 
+    private String initPrompt;
+
     private String coverUrl;
+
+    private String previewUrl;
+
+    private String deployUrl;
 
     private String deployKey;
 

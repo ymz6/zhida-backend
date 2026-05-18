@@ -46,6 +46,7 @@ public class AppAuditService {
     private final UserService userService;
     private final AppConverter appConverter;
     private final AuditRecordConverter auditRecordConverter;
+    private final AppUrlBuilder appUrlBuilder;
 
     @Transactional
     public void submitAudit(AuthContext authContext, Long appId) {
@@ -318,7 +319,14 @@ public class AppAuditService {
             appMap = apps.stream()
                     .collect(Collectors.toMap(
                             App::getId,
-                            app -> appConverter.toAppVO(app, userMap.get(app.getUserId()))));
+                            app -> {
+                                AppVO vo = appConverter.toAppVO(app, userMap.get(app.getUserId()));
+                                if (vo != null) {
+                                    vo.setPreviewUrl(appUrlBuilder.buildPreviewUrl(app.getId()));
+                                    vo.setDeployUrl(appUrlBuilder.buildDeployUrl(app.getDeployKey()));
+                                }
+                                return vo;
+                            }));
         }
         return PageResult.of(page, record -> {
             AuditRecordVO vo = auditRecordConverter.toAuditRecordVO(record);

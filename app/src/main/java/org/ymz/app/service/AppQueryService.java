@@ -46,6 +46,7 @@ public class AppQueryService {
     private final AppChatMessageService appChatMessageService;
     private final AppConverter appConverter;
     private final UserFollowService userFollowService;
+    private final AppUrlBuilder appUrlBuilder;
 
     public PageResult<AppVO> listApps(AuthContext authContext, ListAppsRequest request) {
         QueryWrapper query = QueryWrapper.create()
@@ -191,6 +192,7 @@ public class AppQueryService {
         return PageResult.of(page, app -> {
             User author = userMap.get(app.getUserId());
             AppVO vo = appConverter.toAppVO(app, author);
+            fillAppUrls(vo, app);
             fillAuthorFollowStatus(vo, followingMap, followedMap);
             return vo;
         });
@@ -198,6 +200,7 @@ public class AppQueryService {
 
     private AppVO toAppVO(App app, User author, Long currentUserId) {
         AppVO vo = appConverter.toAppVO(app, author);
+        fillAppUrls(vo, app);
         if (currentUserId == null || author == null) {
             return vo;
         }
@@ -219,5 +222,13 @@ public class AppQueryService {
         Long authorId = vo.getAuthor().getId();
         vo.getAuthor().setIsFollowing(Boolean.TRUE.equals(followingMap.get(authorId)));
         vo.getAuthor().setIsFollowed(Boolean.TRUE.equals(followedMap.get(authorId)));
+    }
+
+    private void fillAppUrls(AppVO vo, App app) {
+        if (vo == null || app == null) {
+            return;
+        }
+        vo.setPreviewUrl(appUrlBuilder.buildPreviewUrl(app.getId()));
+        vo.setDeployUrl(appUrlBuilder.buildDeployUrl(app.getDeployKey()));
     }
 }

@@ -27,6 +27,7 @@ import org.ymz.app.model.entity.Favorite;
 import org.ymz.app.model.entity.User;
 import org.ymz.app.model.enums.app.AppAuditStatus;
 import org.ymz.app.service.AppService;
+import org.ymz.app.service.AppUrlBuilder;
 import org.ymz.app.service.FavoriteService;
 import org.ymz.app.service.UserFollowService;
 import org.ymz.app.service.UserService;
@@ -59,6 +60,7 @@ public class FavoriteServiceImpl extends ServiceImpl<FavoriteMapper, Favorite> i
     private final UserFollowService userFollowService;
     private final FavoriteConverter favoriteConverter;
     private final AppConverter appConverter;
+    private final AppUrlBuilder appUrlBuilder;
 
     @Override
     public void createDefaultFavorite(Long userId) {
@@ -321,10 +323,14 @@ public class FavoriteServiceImpl extends ServiceImpl<FavoriteMapper, Favorite> i
 
         return PageResult.of(page, app -> {
             AppVO vo = appConverter.toAppVO(app, userMap.get(app.getUserId()));
-            if (vo != null && vo.getAuthor() != null) {
-                Long authorId = vo.getAuthor().getId();
-                vo.getAuthor().setIsFollowing(Boolean.TRUE.equals(followingMap.get(authorId)));
-                vo.getAuthor().setIsFollowed(Boolean.TRUE.equals(followedMap.get(authorId)));
+            if (vo != null) {
+                vo.setPreviewUrl(appUrlBuilder.buildPreviewUrl(app.getId()));
+                vo.setDeployUrl(appUrlBuilder.buildDeployUrl(app.getDeployKey()));
+                if (vo.getAuthor() != null) {
+                    Long authorId = vo.getAuthor().getId();
+                    vo.getAuthor().setIsFollowing(Boolean.TRUE.equals(followingMap.get(authorId)));
+                    vo.getAuthor().setIsFollowed(Boolean.TRUE.equals(followedMap.get(authorId)));
+                }
             }
             return vo;
         });
