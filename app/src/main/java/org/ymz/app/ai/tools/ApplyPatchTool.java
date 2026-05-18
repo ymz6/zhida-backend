@@ -139,13 +139,18 @@ public class ApplyPatchTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n【选择工具】%s：`%s`\n".formatted(this.displayName(), arguments.getStr("relativeFilePath", ""));
+        return BaseTool.toolCallTag(toolName(), displayName(),
+                "%s：`%s`".formatted(displayName(), arguments.getStr("relativeFilePath", "")));
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
-        return """
-                \n【工具调用结果】文件 `%s` 已应用补丁
+        boolean success = result != null && result.endsWith(" 已应用补丁");
+        if (!success) {
+            return BaseTool.toolResultTag(toolName(), displayName(), false, result);
+        }
+        String content = """
+                文件 `%s` 已应用补丁
                 旧内容：
                 ```text
                 %s
@@ -153,11 +158,12 @@ public class ApplyPatchTool implements BaseTool {
                 新内容：
                 ```text
                 %s
-                ```\n
+                ```
                 """.formatted(
                 arguments.getStr("relativeFilePath", ""),
                 formatSnippet(arguments.getStr("oldString", "")),
                 formatSnippet(arguments.getStr("newString", "")));
+        return BaseTool.toolResultTag(toolName(), displayName(), success, content);
     }
 
     private static String formatSnippet(String content) {

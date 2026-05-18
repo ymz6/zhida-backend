@@ -28,6 +28,8 @@ import java.util.stream.Stream;
 @Component
 @RequiredArgsConstructor
 public class ExitTool implements BaseTool {
+    public static final String PASS_RESULT = "系统验收通过，请停止调用工具并输出最终结果";
+
     private final AppPathProperties appPathProperties;
 
     @Override
@@ -42,13 +44,14 @@ public class ExitTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n【选择工具】提交系统验收\n";
+        return BaseTool.toolCallTag(toolName(), displayName(), "提交系统验收");
     }
 
     @Override
-    // TODO 这里有问题！工具中的错误信息也是被当作结果的！
     public String formatResponse(JSONObject arguments, String result) {
-        return "\n【工具调用结果】系统验收通过\n";
+        boolean passed = PASS_RESULT.equals(result);
+        String content = passed ? "系统验收通过" : "系统验收失败：\n\n" + result;
+        return BaseTool.toolResultTag(toolName(), displayName(), passed, content);
     }
 
     @Tool("""
@@ -144,7 +147,7 @@ public class ExitTool implements BaseTool {
             }
 
             log.debug("AI 调用退出工具成功");
-            return "系统验收通过，请停止调用工具并输出最终结果";
+            return PASS_RESULT;
         } catch (IOException e) {
             log.warn("应用 {} 发布预览构建产物失败", appId, e);
             return "系统内部错误，请稍后重试";

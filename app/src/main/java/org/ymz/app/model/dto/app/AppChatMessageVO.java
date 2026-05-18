@@ -16,8 +16,6 @@ public class AppChatMessageVO {
 
     private String role;
 
-    private String reasoningContent;
-
     private String content;
 
     private LocalDateTime createdAt;

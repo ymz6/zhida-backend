@@ -8,11 +8,6 @@ package org.ymz.app.model.enums.app;
 public enum ChatStreamMessageType {
 
     /**
-     * 模型思考消息
-     */
-    REASONING,
-
-    /**
      * 正式展示消息
      */
     CONTENT

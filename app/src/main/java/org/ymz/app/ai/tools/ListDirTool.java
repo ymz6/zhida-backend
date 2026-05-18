@@ -93,21 +93,27 @@ public class ListDirTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n【选择工具】列目录：`%s`\n".formatted(arguments.getStr("relativeDirectoryPath", ""));
+        return BaseTool.toolCallTag(toolName(), displayName(),
+                "列目录：`%s`".formatted(arguments.getStr("relativeDirectoryPath", "")));
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
+        if (result != null && result.startsWith("列出目录失败")) {
+            return BaseTool.toolResultTag(toolName(), displayName(), false, result);
+        }
         if ("目录为空".equals(result)) {
-            return "\n【工具调用结果】目录 `%s` 为空\n".formatted(arguments.getStr("relativeDirectoryPath", ""));
+            return BaseTool.toolResultTag(toolName(), displayName(), true,
+                    "目录 `%s` 为空".formatted(arguments.getStr("relativeDirectoryPath", "")));
         }
 
-        return """
-                \n【工具调用结果】目录 `%s` 包含 %d 项：
+        String content = """
+                目录 `%s` 包含 %d 项：
                 ```text
                 %s
-                ```\n
+                ```
                 """.formatted(arguments.getStr("relativeDirectoryPath", ""), result.lines().count(), result);
+        return BaseTool.toolResultTag(toolName(), displayName(), true, content);
     }
 
 }

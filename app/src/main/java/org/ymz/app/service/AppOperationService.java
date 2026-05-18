@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.ymz.app.ai.services.CodeGenerateAiService;
 import org.ymz.app.ai.services.TitleGenerateAiService;
 import org.ymz.app.ai.tools.AiToolRegistry;
+import org.ymz.app.ai.tools.ExitTool;
 import org.ymz.app.browser.WebPageScreenshotService;
 import org.ymz.app.config.AppPathProperties;
 import org.ymz.app.model.dto.app.*;
@@ -600,41 +601,59 @@ public class AppOperationService {
                                     .content(userMessage)
                                     .build());
 
-                    // 处理 TokenStream
-                    StringBuffer reasoningContentBuffer = new StringBuffer();
-                    StringBuffer finalContentBuffer = new StringBuffer();
+                    // content 保存完整可回放 transcript，实时流和历史回放共用同一份正文。
+                    StringBuffer transcriptBuffer = new StringBuffer();
+                    AtomicBoolean thinkingOpen = new AtomicBoolean(false);
                     InvocationParameters parameters = InvocationParameters.from(Map.of(
                             "userId", userId
                     ));
+                    Runnable closeThinkingTag = () -> {
+                        if (thinkingOpen.compareAndSet(true, false)) {
+                            String content = "\n</zhida-thinking>\n";
+                            transcriptBuffer.append(content);
+                            chatFluxSink.next(ChatStreamMessage.of(
+                                    ChatStreamMessageType.CONTENT,
+                                    content));
+                        }
+                    };
                     codeGenerateAiService.chat(appId, userMessage, parameters)
                             .onPartialThinking(partialThinking -> {
-                                // 思考内容单独发送和留存，便于前端分区展示。
                                 String thinkingText = partialThinking.text();
-                                reasoningContentBuffer.append(thinkingText);
+                                if (thinkingOpen.compareAndSet(false, true)) {
+                                    String content = "\n<zhida-thinking>\n";
+                                    transcriptBuffer.append(content);
+                                    chatFluxSink.next(ChatStreamMessage.of(
+                                            ChatStreamMessageType.CONTENT,
+                                            content));
+                                }
+                                transcriptBuffer.append(thinkingText);
                                 chatFluxSink.next(ChatStreamMessage.of(
-                                        ChatStreamMessageType.REASONING,
+                                        ChatStreamMessageType.CONTENT,
                                         thinkingText));
                             })
                             .onPartialResponse(partialResponse -> {
-                                // 处理模型生成的文本片段，后端留存后，再直接发送给前端
-                                finalContentBuffer.append(partialResponse);
+                                closeThinkingTag.run();
+                                // 处理模型生成的文本片段，后端留存后，再直接发送给前端。
+                                transcriptBuffer.append(partialResponse);
                                 chatFluxSink.next(ChatStreamMessage.of(
                                         ChatStreamMessageType.CONTENT,
                                         partialResponse));
                             })
                             .beforeToolExecution(beforeToolExecution -> {
+                                closeThinkingTag.run();
                                 // 工具执行前
                                 ToolExecutionRequest req = beforeToolExecution.request();
                                 String toolName = req.name();
                                 String argumentsJsonStr = req.arguments();
                                 String content = aiToolRegistry.getByName(toolName)
                                         .formatRequest(JSONUtil.parseObj(argumentsJsonStr));
-                                finalContentBuffer.append(content);
+                                transcriptBuffer.append(content);
                                 chatFluxSink.next(ChatStreamMessage.of(
                                         ChatStreamMessageType.CONTENT,
                                         content));
                             })
                             .onToolExecuted(toolExecution -> {
+                                closeThinkingTag.run();
                                 // 工具执行后
                                 ToolExecutionRequest req = toolExecution.request();
                                 String toolName = req.name();
@@ -644,18 +663,19 @@ public class AppOperationService {
                                 // 特殊判断是否调用过退出工具以及是否完成
                                 if ("exitToolCalling".equals(toolName)) {
                                     exitCalled.set(true);
-                                    exitPassed.set("系统验收通过，请停止调用工具并输出最终结果".equals(result));
+                                    exitPassed.set(ExitTool.PASS_RESULT.equals(result));
                                 }
 
                                 String content = aiToolRegistry.getByName(toolName)
                                         .formatResponse(JSONUtil.parseObj(argumentsJsonStr), result);
-                                finalContentBuffer.append(content);
+                                transcriptBuffer.append(content);
                                 chatFluxSink.next(ChatStreamMessage.of(
                                         ChatStreamMessageType.CONTENT,
                                         content));
                             })
                             .onCompleteResponse(response -> {
                                 try {
+                                    closeThinkingTag.run();
                                     // AI 回复结束
                                     log.debug("AI 最终输出的内容为：{}", response.aiMessage().text());
 
@@ -666,15 +686,14 @@ public class AppOperationService {
                                                 : "\n【系统拦截】AI 未调用 exitToolCalling，已绕过强制验收流程，本轮生成未作为有效交付。\n";
                                         log.warn("AI 未通过退出工具验收即结束，userId={}, appId={}, exitCalled={}, exitPassed={}",
                                                 userId, appId, exitCalled.get(), exitPassed.get());
-                                        finalContentBuffer.append(guardContent);
+                                        transcriptBuffer.append(guardContent);
 
                                         appChatMessageService.save(
                                                 AppChatMessage.builder()
                                                         .appId(appId)
                                                         .userId(userId)
                                                         .role(ChatMessageType.AI.name())
-                                                        .reasoningContent(reasoningContentBuffer.toString())
-                                                        .content(finalContentBuffer.toString())
+                                                        .content(transcriptBuffer.toString())
                                                         .build());
 
                                         chatFluxSink.next(ChatStreamMessage.of(
@@ -689,8 +708,7 @@ public class AppOperationService {
                                                     .appId(appId)
                                                     .userId(userId)
                                                     .role(ChatMessageType.AI.name())
-                                                    .reasoningContent(reasoningContentBuffer.toString())
-                                                    .content(finalContentBuffer.toString())
+                                                    .content(transcriptBuffer.toString())
                                                     .build());
                                     chatFluxSink.complete();
                                 } finally {
@@ -699,10 +717,11 @@ public class AppOperationService {
                             })
                             .onError(error -> {
                                 try {
+                                    closeThinkingTag.run();
                                     // 回复出现异常时
                                     log.error("AI 回复时出现异常，userId={}, appId={}", userId, appId, error);
                                     String errorContent = "\n\n【错误】AI 回复失败，请稍后重试。\n";
-                                    finalContentBuffer.append(errorContent);
+                                    transcriptBuffer.append(errorContent);
                                     // 通知前端显示错误信息
                                     chatFluxSink.next(ChatStreamMessage.of(
                                             ChatStreamMessageType.CONTENT,
@@ -714,8 +733,7 @@ public class AppOperationService {
                                                     .appId(appId)
                                                     .userId(userId)
                                                     .role(ChatMessageType.AI.name())
-                                                    .reasoningContent(reasoningContentBuffer.toString())
-                                                    .content(finalContentBuffer.toString())
+                                                    .content(transcriptBuffer.toString())
                                                     .build());
                                     chatFluxSink.complete();
                                 } finally {

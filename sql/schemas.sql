@@ -101,8 +101,6 @@ create table app_chat_message
     user_id           bigint                             not null comment '用户 ID',
 
     role              varchar(32)                        not null comment '消息角色：USER-用户，ASSISTANT-AI 助手',
-    -- 预留，后续打算支持思考模式
-    reasoning_content mediumtext                         null comment '思考消息内容',
     content           mediumtext                         not null comment '消息内容',
 
     created_at        datetime default CURRENT_TIMESTAMP not null comment '创建时间',

@@ -44,21 +44,26 @@ public class SearchFileNameTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n【选择工具】搜索文件名：`%s`\n".formatted(arguments.getStr("keyword", ""));
+        return BaseTool.toolCallTag(toolName(), displayName(),
+                "搜索文件名：`%s`".formatted(arguments.getStr("keyword", "")));
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
+        if (result != null && result.startsWith("搜索文件名失败")) {
+            return BaseTool.toolResultTag(toolName(), displayName(), false, result);
+        }
         if ("未找到匹配文件".equals(result)) {
-            return "\n【工具调用结果】%s\n".formatted(result);
+            return BaseTool.toolResultTag(toolName(), displayName(), true, result);
         }
 
-        return """
-                \n【工具调用结果】找到 %d 个匹配文件：
+        String content = """
+                找到 %d 个匹配文件：
                 ```text
                 %s
-                ```\n
+                ```
                 """.formatted(result.lines().count(), result);
+        return BaseTool.toolResultTag(toolName(), displayName(), true, content);
     }
 
     @Tool("根据关键词模糊搜索文件名")

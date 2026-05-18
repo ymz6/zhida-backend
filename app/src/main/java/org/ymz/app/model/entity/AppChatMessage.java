@@ -49,11 +49,6 @@ public class AppChatMessage implements Serializable {
     private String role;
 
     /**
-     * 思考消息内容
-     */
-    private String reasoningContent;
-
-    /**
      * 消息内容
      */
     private String content;

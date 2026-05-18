@@ -49,16 +49,19 @@ public class ReadFileTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n【选择工具】读取文件：`%s`\n".formatted(arguments.getStr("relativeFilePath", ""));
+        return BaseTool.toolCallTag(toolName(), displayName(),
+                "读取文件：`%s`".formatted(arguments.getStr("relativeFilePath", "")));
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
+        if (result != null && result.startsWith("读取文件失败")) {
+            return BaseTool.toolResultTag(toolName(), displayName(), false, result);
+        }
         // 读取结果只展示摘要，避免把完整文件内容刷进聊天记录。
-        return "\n【工具调用结果】已读取文件：`%s`（%d 行，%d 字符）\n".formatted(
-                arguments.getStr("relativeFilePath", ""),
-                result.lines().count(),
-                result.length());
+        String content = "已读取文件：`%s`（%d 行，%d 字符）".formatted(
+                arguments.getStr("relativeFilePath", ""), result.lines().count(), result.length());
+        return BaseTool.toolResultTag(toolName(), displayName(), true, content);
     }
 
     @Tool("读取文本文件内容")

@@ -49,21 +49,26 @@ public class SearchFileContentTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n【选择工具】搜索文件内容：`%s`\n".formatted(arguments.getStr("keyword", ""));
+        return BaseTool.toolCallTag(toolName(), displayName(),
+                "搜索文件内容：`%s`".formatted(arguments.getStr("keyword", "")));
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
+        if (result != null && result.startsWith("搜索文件内容失败")) {
+            return BaseTool.toolResultTag(toolName(), displayName(), false, result);
+        }
         if ("未找到匹配内容".equals(result)) {
-            return "\n【工具调用结果】%s\n".formatted(result);
+            return BaseTool.toolResultTag(toolName(), displayName(), true, result);
         }
 
-        return """
-                \n【工具调用结果】找到 %d 处匹配内容：
+        String content = """
+                找到 %d 处匹配内容：
                 ```text
                 %s
-                ```\n
+                ```
                 """.formatted(result.lines().count(), result);
+        return BaseTool.toolResultTag(toolName(), displayName(), true, content);
     }
 
     @Tool("根据关键词搜索文本文件内容")

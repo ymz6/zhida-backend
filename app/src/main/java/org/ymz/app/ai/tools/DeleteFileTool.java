@@ -94,12 +94,18 @@ public class DeleteFileTool implements BaseTool {
 
     @Override
     public String formatRequest(JSONObject arguments) {
-        return "\n【选择工具】删除文件：`%s`\n".formatted(arguments.getStr("relativeFilePath", ""));
+        return BaseTool.toolCallTag(toolName(), displayName(),
+                "删除文件：`%s`".formatted(arguments.getStr("relativeFilePath", "")));
 
     }
 
     @Override
     public String formatResponse(JSONObject arguments, String result) {
-        return "\n【工具调用结果】文件 `%s` 已删除\\n".formatted(arguments.getStr("relativeFilePath", ""));
+        boolean success = result != null && result.endsWith(" 已删除");
+        if (!success) {
+            return BaseTool.toolResultTag(toolName(), displayName(), false, result);
+        }
+        return BaseTool.toolResultTag(toolName(), displayName(), success,
+                "文件 `%s` 已删除".formatted(arguments.getStr("relativeFilePath", "")));
     }
 }
