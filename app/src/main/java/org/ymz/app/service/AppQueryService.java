@@ -228,7 +228,6 @@ public class AppQueryService {
         if (vo == null || app == null) {
             return;
         }
-        vo.setPreviewUrl(appUrlBuilder.buildPreviewUrl(app.getId()));
         vo.setDeployUrl(appUrlBuilder.buildDeployUrl(app.getDeployKey()));
     }
 }

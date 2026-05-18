@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * 生成应用预览和部署访问地址。
+ * 生成应用部署访问地址。
  *
  * @author ymz
  */
@@ -16,10 +16,6 @@ public class AppUrlBuilder {
 
     private final Properties properties;
 
-    public String buildPreviewUrl(Long appId) {
-        return properties.backendBaseUrl() + "/apps/preview/" + appId + "/";
-    }
-
     public String buildDeployUrl(String deployKey) {
         if (StrUtil.isBlank(deployKey)) {
             return null;
@@ -28,11 +24,10 @@ public class AppUrlBuilder {
     }
 
     /**
-     * 应用访问地址配置，仅服务于 {@link AppUrlBuilder}。
+     * 应用部署访问地址配置，仅服务于 {@link AppUrlBuilder}。
      */
     @ConfigurationProperties(prefix = "zhida.app-url")
     public record Properties(
-            String backendBaseUrl,
             String deployBaseUrl) {
     }
 }

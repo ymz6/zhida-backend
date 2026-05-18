@@ -322,7 +322,6 @@ public class AppAuditService {
                             app -> {
                                 AppVO vo = appConverter.toAppVO(app, userMap.get(app.getUserId()));
                                 if (vo != null) {
-                                    vo.setPreviewUrl(appUrlBuilder.buildPreviewUrl(app.getId()));
                                     vo.setDeployUrl(appUrlBuilder.buildDeployUrl(app.getDeployKey()));
                                 }
                                 return vo;

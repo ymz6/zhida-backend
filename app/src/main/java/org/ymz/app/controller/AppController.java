@@ -2,15 +2,11 @@ package org.ymz.app.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.ymz.app.model.dto.app.*;
 import org.ymz.app.model.dto.audit.AuditRecordVO;
@@ -23,15 +19,8 @@ import org.ymz.app.security.LoginRequired;
 import org.ymz.app.service.AppAuditService;
 import org.ymz.app.service.AppOperationService;
 import org.ymz.app.service.AppQueryService;
-import org.ymz.app.web.exception.BusinessException;
 import org.ymz.app.web.response.Response;
-import org.ymz.app.web.response.ResultCode;
 import reactor.core.publisher.Flux;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 /**
  * 应用生成管理模块
@@ -114,43 +103,6 @@ public class AppController {
                         .build()
                         .toString())
                 .body(responseBody);
-    }
-
-    // 预览应用 已经稳定
-    @GetMapping("/preview/{appId}/**")
-    @Operation(operationId = "previewApp")
-    public ResponseEntity<Resource> previewApp(@PathVariable Long appId, HttpServletRequest request)
-            throws IOException {
-        // 从 request 解析 resourcePath
-        String requestPath = (String) request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
-        String prefix = "/apps/preview/" + appId;
-        if (!requestPath.startsWith(prefix)) {
-            throw BusinessException.of(ResultCode.INVALID_PARAM);
-        }
-        String resourcePath = requestPath.substring(prefix.length());
-
-        // 访问 /preview/{appId} 时，重定向到 /preview/{appId}/，保证相对路径资源能带上 appId
-        if (resourcePath.isEmpty()) {
-            return ResponseEntity
-                    .status(HttpStatus.MOVED_PERMANENTLY)
-                    .header(HttpHeaders.LOCATION, request.getRequestURI() + "/")
-                    .build();
-        }
-        if (resourcePath.isEmpty()) {
-            resourcePath = "/";
-        }
-        AuthContext authContext = AuthContextHolder.get();
-        Path filePath = appOperationService.getPreviewFilePath(appId, resourcePath, authContext);
-        File file = filePath.toFile();
-        // 判断文件是否存在
-        if (!file.exists() || !file.isFile()) {
-            return ResponseEntity.notFound().build();
-        }
-        Resource resource = new FileSystemResource(file);
-        String contentType = Files.probeContentType(file.toPath());
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE, contentType)
-                .body(resource);
     }
 
     // 应用部署 已经稳定

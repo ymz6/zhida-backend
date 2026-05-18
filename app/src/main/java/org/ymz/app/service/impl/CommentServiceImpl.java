@@ -17,7 +17,6 @@ import org.ymz.app.model.dto.comment.CreateCommentRequest;
 import org.ymz.app.model.dto.comment.ListCommentsRequest;
 import org.ymz.app.model.dto.comment.ListRepliesRequest;
 import org.ymz.app.model.dto.page.PageResult;
-import org.ymz.app.model.dto.user.UserBriefVO;
 import org.ymz.app.model.entity.App;
 import org.ymz.app.model.entity.Comment;
 import org.ymz.app.model.entity.User;

@@ -398,40 +398,6 @@ public class AppOperationService {
     }
 
     /**
-     * 获取预览的静态资源
-     * 仅有作者本人以及管理员能看到
-     */
-    public Path getPreviewFilePath(Long appId, String resourcePath, AuthContext authContext) {
-        App app = appService.getById(appId);
-        if (app == null) {
-            throw BusinessException.of(ResultCode.NOT_FOUND);
-        }
-        // 仅应用作者本人或管理员可以预览
-        if (!authContext.getUserId().equals(app.getUserId()) && !UserRole.ADMIN.equals(authContext.getUserRole())) {
-            throw BusinessException.of(ResultCode.NO_PERMISSION);
-        }
-
-        // 默认目录访问 index.html
-        if ("/".equals(resourcePath)) {
-            resourcePath = "/index.html";
-        }
-        Path previewRootPath = appPathProperties.getTmpDir()
-                .resolve("app-previews")
-                .resolve(String.valueOf(appId))
-                .normalize();
-        // 构建目标文件路径
-        Path targetPath = previewRootPath
-                // 去掉开头的 /
-                .resolve(resourcePath.substring(1))
-                .normalize();
-        // 防止路径穿越，即防止用户用 ../../ 访问预览目录外的文件
-        if (!targetPath.startsWith(previewRootPath)) {
-            throw BusinessException.of(ResultCode.INVALID_PARAM);
-        }
-        return targetPath;
-    }
-
-    /**
      * 下载应用源码压缩包
      */
     public void downloadAppSourceCode(AuthContext authContext, Long appId, OutputStream outputStream) {

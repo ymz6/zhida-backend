@@ -35,7 +35,6 @@ zhida:
     tmp-dir: C:/Users/ymz/Data/Codes/zhida/backend/tmp
     template-dir: C:/Users/ymz/Data/Codes/zhida/backend/project-template/zhida-react-project
   app-url:
-    backend-base-url: http://localhost:8080
     deploy-base-url: http://localhost:80
 jwt:
   secret: 4ryT+67BFbvVl6HqMFzdOlMcaVUcCrf3hwPjTN4Qmog=

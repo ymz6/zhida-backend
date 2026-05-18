@@ -22,8 +22,6 @@ public class AppVO {
 
     private String coverUrl;
 
-    private String previewUrl;
-
     private String deployUrl;
 
     private String deployKey;
