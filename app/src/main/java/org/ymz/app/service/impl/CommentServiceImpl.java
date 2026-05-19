@@ -238,7 +238,8 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
             if (author != null) {
                 vo.setAuthor(userConverter.toUserBriefVO(author));
             }
-            Comment parent = parentMap.get(comment.getParentId());
+            // 一级评论没有 parentId，不能用 null key 访问 Map.of() 返回的空映射。
+            Comment parent = comment.getParentId() == null ? null : parentMap.get(comment.getParentId());
             if (parent != null) {
                 User replyToUser = userMap.get(parent.getUserId());
                 if (replyToUser != null) {
