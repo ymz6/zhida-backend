@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.ymz.app.converter.AppConverter;
 import org.ymz.app.converter.AuditRecordConverter;
 import org.ymz.app.model.dto.app.AppVO;
+import org.ymz.app.model.dto.app.ListAdminAppCasesRequest;
 import org.ymz.app.model.dto.audit.AuditRecordVO;
 import org.ymz.app.model.dto.audit.ListAuditRecordsRequest;
 import org.ymz.app.model.dto.audit.ReviewAuditRequest;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.ymz.app.model.entity.table.AppTableDef.APP;
 import static org.ymz.app.model.entity.table.AuditRecordTableDef.AUDIT_RECORD;
 
 /**
@@ -251,6 +253,53 @@ public class AppAuditService {
         return toAuditRecordPageResult(page);
     }
 
+    public AuditRecordVO getAdminAuditRecord(Long recordId) {
+        AuditRecord record = auditRecordService.getById(recordId);
+        if (record == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "审核记录不存在");
+        }
+
+        App app = appService.getById(record.getAppId());
+        if (app == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "应用不存在");
+        }
+
+        User author = userService.getById(app.getUserId());
+        AuditRecordVO vo = auditRecordConverter.toAuditRecordVO(record);
+        vo.setApp(toAppVO(app, author));
+        return vo;
+    }
+
+    public PageResult<AppVO> listAdminAppCases(ListAdminAppCasesRequest request) {
+        Integer statusCode = request.getStatus() == null ? null : request.getStatus().getCode();
+        List<Integer> caseStatusCodes = List.of(
+                AppAuditStatus.APPROVED.getCode(),
+                AppAuditStatus.REJECTED.getCode());
+        QueryWrapper query = QueryWrapper.create()
+                .select(APP.ALL_COLUMNS)
+                .from(APP)
+                // 应用案例管理只看已进入案例体系的应用，不展示草稿或待审核应用。
+                .where(statusCode == null
+                        ? APP.AUDIT_STATUS.in(caseStatusCodes)
+                        : APP.AUDIT_STATUS.eq(statusCode))
+                .and(APP.FEATURED.eq(request.getFeatured(), If::notNull))
+                .and(APP.NAME.like(request.getKeyword(), If::hasText))
+                .orderBy(APP.FEATURED.desc(), APP.FEATURED_AT.desc(), APP.PUBLISHED_AT.desc());
+
+        Page<App> page = appService.page(request.toPage(), query);
+        return toAppPageResult(page);
+    }
+
+    public AppVO getAdminAppCase(Long appId) {
+        App app = appService.getById(appId);
+        if (app == null || !isAppCaseStatus(app.getAuditStatus())) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "应用案例不存在");
+        }
+
+        User author = userService.getById(app.getUserId());
+        return toAppVO(app, author);
+    }
+
     public PageResult<AuditRecordVO> listAppAuditRecords(
             AuthContext authContext,
             Long appId,
@@ -332,5 +381,31 @@ public class AppAuditService {
             vo.setApp(appMap.get(record.getAppId()));
             return vo;
         });
+    }
+
+    private PageResult<AppVO> toAppPageResult(Page<App> page) {
+        List<Long> userIds = page.getRecords().stream()
+                .map(App::getUserId)
+                .distinct()
+                .toList();
+        Map<Long, User> userMap = userIds.isEmpty()
+                ? Map.of()
+                : userService.listByIds(userIds).stream()
+                        .collect(Collectors.toMap(User::getId, user -> user));
+
+        return PageResult.of(page, app -> toAppVO(app, userMap.get(app.getUserId())));
+    }
+
+    private AppVO toAppVO(App app, User author) {
+        AppVO vo = appConverter.toAppVO(app, author);
+        if (vo != null) {
+            vo.setDeployUrl(appUrlBuilder.buildDeployUrl(app.getDeployKey()));
+        }
+        return vo;
+    }
+
+    private boolean isAppCaseStatus(Integer auditStatus) {
+        return AppAuditStatus.APPROVED.getCode().equals(auditStatus)
+                || AppAuditStatus.REJECTED.getCode().equals(auditStatus);
     }
 }

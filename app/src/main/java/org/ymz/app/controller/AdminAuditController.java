@@ -38,6 +38,12 @@ public class AdminAuditController {
         return Response.ok(appAuditService.listAdminAuditRecords(request));
     }
 
+    @GetMapping("/audits/{recordId}")
+    @Operation(operationId = "getAudit")
+    public Response<AuditRecordVO> getAudit(@PathVariable Long recordId) {
+        return Response.ok(appAuditService.getAdminAuditRecord(recordId));
+    }
+
     @PutMapping("/audits/{recordId}")
     @Operation(operationId = "reviewAudit")
     public Response<Void> reviewAudit(
