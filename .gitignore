@@ -12,13 +12,6 @@ target/
 
 ### Mac OS ###
 .DS_Store
-
-.agents
-.claude
 .codex
+.agents
 tmp
-openspec
-project-template
-nginx
-prometheus-3.11.3.windows-amd64
-docs

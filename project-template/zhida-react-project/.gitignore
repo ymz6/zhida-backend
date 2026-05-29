@@ -1,0 +1,4 @@
+node_modules
+dist
+release
+pack-template.ps1
