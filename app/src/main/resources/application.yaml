@@ -6,42 +6,9 @@ spring:
       # 全局上传保护阈值，具体业务限制在各自 Service 中校验
       max-file-size: 10MB
       max-request-size: 10MB
-  datasource:
-    url: jdbc:mysql://localhost:3306/zhida
-    username: root
-    password: 123456
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      database: 0
-springdoc:
-  api-docs:
-    enabled: true
-    path: /v1/api-docs
-  swagger-ui:
-    enabled: false
 logging:
   level:
     "[org.ymz.app]": DEBUG
 mybatis-flex:
-  configuration:
-    # 方便开发阶段排查问题的日志
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   # Mapper XML 文件位置
   mapper-locations: classpath*:/mapper/**/*.xml
-zhida:
-  app-path:
-    tmp-dir: C:/Users/ymz/Data/Codes/zhida/backend/tmp
-    template-dir: C:/Users/ymz/Data/Codes/zhida/backend/project-template/zhida-react-project
-  app-url:
-    deploy-base-url: http://localhost:80
-jwt:
-  secret: 4ryT+67BFbvVl6HqMFzdOlMcaVUcCrf3hwPjTN4Qmog=
-  issuer: zhida
-oss:
-  uri: http://localhost:9000
-  access-key: YilU6lUh4grbHWqiIB2t
-  secret-key: ggnbl2ZN1zIFfphBPLRIOEpj1q3CFrQ5GYgjVPdm
-  public-bucket: zhida-public
-  private-bucket: zhida-private

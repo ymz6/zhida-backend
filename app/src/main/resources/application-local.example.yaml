@@ -1,0 +1,68 @@
+spring:
+  datasource:
+    # 本地开发数据库地址
+    url: jdbc:mysql://localhost:3306/your_database_name
+    username: your_username
+    password: your_password
+
+  data:
+    redis:
+      # 本地 Redis 地址
+      host: localhost
+      port: 6379
+      database: 0
+
+springdoc:
+  # 是否开启 OpenAPI 文档
+  api-docs:
+    enabled: true
+    path: /v1/api-docs
+
+  # 是否开启 Swagger UI 页面
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    # 开发环境建议 DEBUG，方便排查问题
+    "[your.package.name]": DEBUG
+
+mybatis-flex:
+  configuration:
+    # 开发阶段打印 SQL，生产环境不要开启
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+zhida:
+  llm:
+    # 标题生成 AI 的 API Key，本项目使用的是 Qwen 3.6-flash，可以替换
+    title-gen-api-key: sk-title-key
+    # 代码生成 AI 的 API Key，本项目使用的是 DeepSeek V4 Pro，由于有专用配置，不建议替换除了 DeepSeek 以外的大模型
+    code-gen-api-key: sk-code-key
+  app-path:
+    # 临时文件目录，根据自己的电脑修改
+    tmp-dir: /your/local/path/tmp
+    # 项目模板目录，根据自己的电脑修改
+    template-dir: /your/local/path/project-template
+
+  app-url:
+    # 本地部署地址
+    deploy-base-url: http://localhost:80
+
+jwt:
+  # JWT 签名密钥，请生成自己的随机字符串
+  secret: your_jwt_secret
+
+  issuer: zhida
+
+oss:
+  # 本地 MinIO 或其他对象存储地址
+  uri: http://localhost:9000
+
+  # 对象存储访问密钥
+  access-key: your_access_key
+
+  # 对象存储私钥
+  secret-key: your_secret_key
+
+  public-bucket: your_public_bucket
+  private-bucket: your_private_bucket
